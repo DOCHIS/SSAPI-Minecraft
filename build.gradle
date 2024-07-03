@@ -1,0 +1,42 @@
+plugins {
+    id 'java'
+}
+
+group = 'kr.ssapi.minecraft'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "spigotmc-repo"
+        url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/"
+    }
+    maven {
+        name = "sonatype"
+        url = "https://oss.sonatype.org/content/groups/public/"
+    }
+}
+
+dependencies {
+    compileOnly "org.spigotmc:spigot-api:1.19.2-R0.1-SNAPSHOT"
+
+    implementation ('io.socket:socket.io-client:2.1.0') {
+        exclude group: 'org.json', module: 'json'
+    }
+    implementation group: 'org.json', name: 'json', version: '20090211'
+    implementation 'org.xerial.snappy:snappy-java:1.1.10.5'
+}
+
+compileJava.options.encoding = 'UTF-8'
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+}
+
+jar {
+    archiveFileName.set('ssapi-minecraft.jar')
+    destinationDirectory = file('D:\\OneDrive\\문서\\ServerEngine\\servers\\paper\\plugins')
+}

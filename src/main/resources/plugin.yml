@@ -1,0 +1,11 @@
+name: ssapi-minecraft
+version: 1.0.0
+main: kr.ssapi.minecraft.Main
+author: Dev.comPort
+api-version: 1.19
+libraries:
+  - io.socket:socket.io-client:2.1.0
+  - org.xerial.snappy:snappy-java:1.1.10.5
+commands:
+  후원연동관리:
+    description: 후원연동 관리 시스템
