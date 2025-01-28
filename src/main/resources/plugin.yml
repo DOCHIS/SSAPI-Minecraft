@@ -1,11 +1,45 @@
-name: ssapi-minecraft
-version: 1.0.0
-main: kr.ssapi.minecraft.Main
-author: Dev.comPort
-api-version: 1.19
-libraries:
-  - io.socket:socket.io-client:2.1.0
-  - org.xerial.snappy:snappy-java:1.1.10.5
+name: SSApi
+version: '${version}'
+main: kr.ssapi.minecraft
+api: '1.20'
+api-version: '1.20'
+author: YourName
+description: SSApi plugin for Minecraft
+
 commands:
-  후원연동관리:
-    description: 후원연동 관리 시스템
+  api:
+    description: API 연동 명령어
+    usage: |
+      /<command> 연동 <숲|치지직> <아이디> - 스트리밍 플랫폼과 연동
+      /<command> 시작 - API 연동 시작
+      /<command> 중지 - API 연동 중지
+    aliases:
+      - 후원
+  api관리:
+    description: API 관리 명령어
+    usage: |
+      /<command> 리로드 - 설정 파일 다시 불러오기
+      /<command> 시작 <플레이어> - 플레이어의 API 연동 시작
+      /<command> 중지 <플레이어> - 플레이어의 API 연동 중지
+      /<command> 연동 <플레이어> <숲|치지직> <아이디> - 플레이어의 API 연동 설정
+      /<command> 아이템 [플레이어] - 손에 든 아이템을 후원 지급 아이템으로 설정 (플레이어 생략 시 자신의 아이템)
+      /<command> 설정 초기화 - 후원 금액별 동작 설정 초기화
+      /<command> 설정 추가 <금액> <동작> - 후원 금액별 동작 추가
+      /<command> 설정 삭제 <금액> - 후원 금액별 동작 삭제
+      /<command> 설정 확인 - 후원 금액별 동작 목록 확인
+    permission: ssapi.admin
+    aliases:
+      - 후원관리
+  api테스트:
+    description: 후원 액션 테스트 명령어
+    usage: |
+      /<command> <금액/액션명> [플레이어] - 후원 액션 테스트
+      사용 가능한 액션: GIVE_ITEM, RANDOM_EFFECT, SPAWN_MOB, RANDOM_TELEPORT, INSTANT_DEATH
+    permission: ssapi.admin
+    aliases:
+      - 후원테스트
+
+permissions:
+  ssapi.admin:
+    description: API 관리 명령어 사용 권한
+    default: op
