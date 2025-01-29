@@ -1,6 +1,5 @@
-
 .gradle/
-
 build/
-
 .idea/
+.github/hooks/.env
+.github/logs
