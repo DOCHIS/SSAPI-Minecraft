@@ -161,12 +161,12 @@ Paper 이외의 서버 소프트웨어에서는 테스트되지 않았으나, �
 
 #### 1. 아이템 지급 (GIVE_ITEM)
 
-![아이템 지급](.github/GIVE_ITEM.gif)
+![아이템 지급](.github/docs/GIVE_ITEM.gif)
 관리자가 설정한 아이템을 후원자에게 지급합니다.
 
 #### 2. 즉시 사망 (INSTANT_DEATH)
 
-![즉시 사망](.github/INSTANT_DEATH.gif)
+![즉시 사망](.github/docs/INSTANT_DEATH.gif)
 후원을 받은 플레이어를 즉시 사망시킵니다.
 
 - 설정을 통해 인벤토리 보호 기능을 켜고 끌 수 있습니다.
@@ -179,17 +179,17 @@ enabled: true # true: 인벤토리 보호 켜기, false: 인벤토리 보호 끄
 
 #### 3. 랜덤 효과 (RANDOM_EFFECT)
 
-![랜덤 효과](.github/RANDOM_EFFECT.gif)
+![랜덤 효과](.github/docs/RANDOM_EFFECT.gif)
 무작위로 버프 또는 디버프를 부여합니다.
 
 #### 4. 랜덤 텔레포트 (RANDOM_TELEPORT)
 
-![랜덤 텔레포트](.github/RANDOM_TELEPORT.gif)
+![랜덤 텔레포트](.github/docs/RANDOM_TELEPORT.gif)
 플레이어를 무작위 위치로 순간이동시킵니다.
 
 #### 5. 몹 소환 (SPAWN_MOB)
 
-![몹 소환](.github/SPAWN_MOB.gif)
+![몹 소환](.github/docs/SPAWN_MOB.gif)
 플레이어 주변에 무작위 몹을 소환합니다.
 
 ### 🛠️ 커스텀 커맨드
