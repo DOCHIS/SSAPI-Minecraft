@@ -56,21 +56,21 @@ api:
   # ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
   socket:
     # 연결 타임아웃 (밀리초)
-    timeout: 5000
+    timeout: 3000
     
     # 재연결 설정
     reconnection:
       # 재연결 시도 여부
       enabled: true
-      # 최대 재시도 횟수 (-1: 무제한)
-      attempts: -1
+      # 최대 재시도 횟수
+      attempts: 992147483647
       # 재연결 대기 시간 (밀리초)
       delay: 1000
       # 최대 재연결 대기 시간 (밀리초)
-      max-delay: 5000
+      max-delay: 3000
     
     # 로그인 재시도 대기 시간 (밀리초)
-    login-retry-delay: 2000
+    login-retry-delay: 1000
 
 # ======================================
 # 데이터 저장소 설정

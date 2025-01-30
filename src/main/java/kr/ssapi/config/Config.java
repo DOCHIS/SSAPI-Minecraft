@@ -227,7 +227,7 @@ public class Config {
         // 소켓 설정 로드
         socketTimeout = config.getInt("api.socket.timeout", 5000);
         socketReconnectionEnabled = config.getBoolean("api.socket.reconnection.enabled", true);
-        socketReconnectionAttempts = config.getInt("api.socket.reconnection.attempts", Integer.MAX_VALUE);
+        socketReconnectionAttempts = config.getInt("api.socket.reconnection.attempts", 2147483647);
         socketReconnectionDelay = config.getInt("api.socket.reconnection.delay", 1000);
         socketReconnectionMaxDelay = config.getInt("api.socket.reconnection.max-delay", 5000);
         socketLoginRetryDelay = config.getInt("api.socket.login-retry-delay", 2000);
@@ -281,9 +281,7 @@ public class Config {
     // 소켓 설정 getter 메소드들
     public int getSocketTimeout() { return socketTimeout; }
     public boolean isSocketReconnectionEnabled() { return socketReconnectionEnabled; }
-    public int getSocketReconnectionAttempts() { 
-        return socketReconnectionAttempts; 
-    }
+    public int getSocketReconnectionAttempts() { return socketReconnectionAttempts; }
     public int getSocketReconnectionDelay() { return socketReconnectionDelay; }
     public int getSocketReconnectionMaxDelay() { return socketReconnectionMaxDelay; }
     public int getSocketLoginRetryDelay() { return socketLoginRetryDelay; }
