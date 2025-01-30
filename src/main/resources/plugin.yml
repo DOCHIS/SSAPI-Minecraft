@@ -3,7 +3,7 @@ version: '${version}'
 main: kr.ssapi.minecraft
 api: '1.20'
 api-version: '1.20'
-author: YourName
+author: Dochis
 description: SSApi plugin for Minecraft
 
 commands:
