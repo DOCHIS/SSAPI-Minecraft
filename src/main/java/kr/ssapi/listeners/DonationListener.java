@@ -132,8 +132,12 @@ public class DonationListener implements Listener {
                 LocalDateTime.now()
             );
             
-            // 로그 저장
-            StorageManager.getDriver().saveApiLog(log);
+            // 로그 저장 조건 수정
+            if (Config.getInstance().isDonationLoggingEnabled()) {
+                StorageManager.getDriver().saveApiLog(log);
+            } else if (Config.getInstance().isFailureLoggingEnabled() && player == null) {
+                StorageManager.getDriver().saveApiLog(log);
+            }
             
             // 플레이어가 접속 중인 경우 알림 메시지와 후원 동작 실행
             if (player != null) {
