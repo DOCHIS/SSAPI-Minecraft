@@ -420,3 +420,17 @@ messages:
           type: "BLOCK_NOTE_BLOCK_HARP"
           volume: 1.0
           pitch: 1.0
+
+# ======================================
+# 로그 설정
+# ======================================
+logging:
+  # 로그 저장 활성화 여부
+  enabled: true
+  
+  # 로그 저장 대상 설정
+  save:
+    # 후원 로그 저장
+    donation: true
+    # 실행 실패 로그 저장
+    failure: true

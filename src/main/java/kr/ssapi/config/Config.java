@@ -57,6 +57,10 @@ public class Config {
     private boolean instantDeathBroadcastEnabled;
     private String instantDeathBroadcastMessage;
 
+    private boolean loggingEnabled;
+    private boolean donationLoggingEnabled;
+    private boolean failureLoggingEnabled;
+
     private static class RandomTeleportConfig {
         private final RangeConfig xRange;
         private final RangeConfig zRange;
@@ -251,6 +255,11 @@ public class Config {
         instantDeathBroadcastEnabled = config.getBoolean("donation-actions.settings.instant-death.broadcast.enabled", true);
         instantDeathBroadcastMessage = config.getString("messages.instant-death.broadcast", 
             "§c{player}§f님이 §e{donator}§f님의 §c즉시 사망§f 후원으로 인해 사망하셨습니다!");
+
+        // 로그 설정 로드
+        loggingEnabled = config.getBoolean("logging.enabled", true);
+        donationLoggingEnabled = config.getBoolean("logging.save.donation", true);
+        failureLoggingEnabled = config.getBoolean("logging.save.failure", true);
     }
 
     // Getter 메소드들
@@ -382,4 +391,9 @@ public class Config {
     public double getInstantDeathBroadcastSoundPitch() {
         return config.getDouble("messages.instant-death.broadcast.sound.pitch", 1.0);
     }
+
+    // Getter 메소드 추가
+    public boolean isLoggingEnabled() { return loggingEnabled; }
+    public boolean isDonationLoggingEnabled() { return loggingEnabled && donationLoggingEnabled; }
+    public boolean isFailureLoggingEnabled() { return loggingEnabled && failureLoggingEnabled; }
 } 

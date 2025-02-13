@@ -30,19 +30,4 @@ public interface StorageDriver {
     
     // 후원 로그 저장
     void saveApiLog(ApiLog log);
-    
-    // 후원 로그 조회 (스트리머 ID 기준)
-    List<ApiLog> getApiLogsByStreamerId(String streamerId);
-    
-    // 후원 로그 조회 (플레이어 UUID 기준)
-    List<ApiLog> getApiLogsByPlayerUuid(String playerUuid);
-    
-    // 특정 기간 동안의 후원 로그 조회
-    List<ApiLog> getApiLogsByDateRange(LocalDateTime start, LocalDateTime end);
-    
-    // 실행되지 않은 후원 로그 조회
-    List<ApiLog> getPendingApiLogs();
-    
-    // 후원 로그 상태 업데이트
-    void updateApiLogStatus(Long logNo, ApiLog.IsRun status);
 } 

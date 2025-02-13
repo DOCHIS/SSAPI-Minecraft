@@ -1,8 +1,8 @@
 name: SSApi
 version: '${version}'
 main: kr.ssapi.minecraft
-api: '1.20'
-api-version: '1.20'
+api: '1.16'
+api-version: '1.16'
 author: Dochis
 description: SSApi plugin for Minecraft
 

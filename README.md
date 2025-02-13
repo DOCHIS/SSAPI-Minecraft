@@ -250,7 +250,56 @@ commands:
 
 각 동작 유형별 상세 설정은 `config.yml`을 참고해 주세요.
 
-# 📚 의존성
+### 로그 설정
+
+| 설정                    | 설명                  | 기본값 |
+| ----------------------- | --------------------- | ------ |
+| `logging.enabled`       | 로그 저장 활성화 여부 | `true` |
+| `logging.save.donation` | 후원 로그 저장        | `true` |
+| `logging.save.failure`  | 실행 실패 로그 저장   | `true` |
+
+로그는 선택한 저장소 타입(`storage.type`)에 따라 다르게 저장됩니다:
+
+#### YML 저장소 사용 시
+
+- JSON 형식의 텍스트로 저장
+- 저장 위치: `plugins/SSApi/logs` 디렉토리
+- 날짜별로 파일 구분
+
+#### MySQL 저장소 사용 시
+
+- `api_log` 테이블에 저장
+- 테이블 구조:
+  ```sql
+  CREATE TABLE `api_log` (
+      `log_no` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+      `server_ip` VARCHAR(15) NULL DEFAULT NULL,
+      `server_name` VARCHAR(100) NULL DEFAULT NULL,
+      `streamer_id` VARCHAR(100) NULL DEFAULT NULL,
+      `username` VARCHAR(100) NULL DEFAULT NULL,
+      `cnt` INT(10) UNSIGNED NULL DEFAULT NULL,
+      `type` VARCHAR(50) NULL DEFAULT NULL,
+      `property` TEXT NULL DEFAULT NULL,
+      `isRun` ENUM('Y','N') NULL DEFAULT 'Y',
+      `player_name` VARCHAR(100) NULL DEFAULT NULL,
+      `player_uuid` CHAR(36) NULL DEFAULT NULL,
+      `player_world` VARCHAR(100) NULL DEFAULT NULL,
+      `created_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`log_no`)
+  )
+  ```
+
+저장되는 로그 정보:
+
+- 서버 정보 (IP, 이름)
+- 스트리머 ID
+- 후원자 정보 (이름, 금액, 개수)
+- 실행 정보 (타입, 속성, 성공 여부)
+- 플레이어 정보 (이름, UUID, 월드)
+- 생성 시간
+
+## 📚 의존성
+=======
 
 ## 필수
 

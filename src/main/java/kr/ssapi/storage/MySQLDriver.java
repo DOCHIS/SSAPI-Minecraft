@@ -73,7 +73,11 @@ public class MySQLDriver implements StorageDriver {
                 `player_uuid` CHAR(36) NULL DEFAULT NULL,
                 `player_world` VARCHAR(100) NULL DEFAULT NULL,
                 `created_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (`log_no`)
+                PRIMARY KEY (`log_no`),
+                INDEX `idx_streamer_id` (`streamer_id`),
+                INDEX `idx_player_uuid` (`player_uuid`),
+                INDEX `idx_created_at` (`created_at`),
+                INDEX `idx_isRun` (`isRun`)
             ) COLLATE='utf8mb4_general_ci' ENGINE=InnoDB;
             """;
             
@@ -218,96 +222,6 @@ public class MySQLDriver implements StorageDriver {
             stmt.setString(9, log.getPlayerName());
             stmt.setString(10, log.getPlayerUuid());
             stmt.setString(11, log.getPlayerWorld());
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    public List<ApiLog> getApiLogsByStreamerId(String streamerId) {
-        List<ApiLog> logs = new ArrayList<>();
-        String sql = "SELECT * FROM api_log WHERE streamer_id = ?";
-        
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, streamerId);
-            ResultSet rs = stmt.executeQuery();
-            
-            while (rs.next()) {
-                logs.add(mapResultSetToApiLog(rs));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return logs;
-    }
-
-    @Override
-    public List<ApiLog> getApiLogsByPlayerUuid(String playerUuid) {
-        List<ApiLog> logs = new ArrayList<>();
-        String sql = "SELECT * FROM api_log WHERE player_uuid = ?";
-        
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, playerUuid);
-            ResultSet rs = stmt.executeQuery();
-            
-            while (rs.next()) {
-                logs.add(mapResultSetToApiLog(rs));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return logs;
-    }
-
-    @Override
-    public List<ApiLog> getApiLogsByDateRange(LocalDateTime start, LocalDateTime end) {
-        List<ApiLog> logs = new ArrayList<>();
-        String sql = "SELECT * FROM api_log WHERE created_at BETWEEN ? AND ?";
-        
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setTimestamp(1, Timestamp.valueOf(start));
-            stmt.setTimestamp(2, Timestamp.valueOf(end));
-            ResultSet rs = stmt.executeQuery();
-            
-            while (rs.next()) {
-                logs.add(mapResultSetToApiLog(rs));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return logs;
-    }
-
-    @Override
-    public List<ApiLog> getPendingApiLogs() {
-        List<ApiLog> logs = new ArrayList<>();
-        String sql = "SELECT * FROM api_log WHERE isRun = 'N'";
-        
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            
-            while (rs.next()) {
-                logs.add(mapResultSetToApiLog(rs));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return logs;
-    }
-
-    @Override
-    public void updateApiLogStatus(Long logNo, ApiLog.IsRun status) {
-        String sql = "UPDATE api_log SET isRun = ? WHERE log_no = ?";
-        
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, status.name());
-            stmt.setLong(2, logNo);
             stmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
