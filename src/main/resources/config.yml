@@ -1,436 +1,281 @@
-# ======================================
-# API 설정
-# ======================================
+# ════════════════════════════════════════════════════════════════════
+#                  SSAPI Minecraft Plugin v2 — 메인 설정
+# ════════════════════════════════════════════════════════════════════
+#  📖 사용 가이드:  https://ssapi.kr/docs/minecraft
+#  🐛 버그 신고:    https://github.com/.../issues
+#  💬 디스코드:     https://discord.gg/...
+#
+#  💡 자주 묻는 질문:
+#   - "후원 금액별로 다른 동작을 하고 싶어요" → triggers.yml 참고
+#   - "킷(아이템 묶음)을 만들고 싶어요"      → 게임 안에서 /API관리 입력
+#   - "메시지 문구를 바꾸고 싶어요"          → messages.yml 참고
+#   - 이 파일을 수정한 다음엔 /API관리 리로드 명령으로 적용해 주세요
+#
+#  ⚠️ 이 파일의 주석은 사라지지 않아요. 마음대로 메모 남기셔도 됩니다.
+# ════════════════════════════════════════════════════════════════════
+
+# 설정 파일 버전 — 손대지 마세요. 플러그인이 자동으로 관리합니다.
+config-version: 2
+
+
+# ─────────────────────────────────────────────────────────────────────
+# [1] API 연동
+# ─────────────────────────────────────────────────────────────────────
 api:
-  # API 메시지 프리픽스
-  # ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-  # 모든 API 메시지에 적용되는 기본 프리픽스입니다.
-  prefix: "§b[§eAPI§b] §f"
-  
-  # API 인증 키 [필수]
-  # ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-  # API 키 발급 방법: https://ssapi.kr/
+  # API 키 (대시보드에서 발급) — 이 값이 비어있으면 플러그인이 동작하지 않습니다.
+  # 발급 방법: https://ssapi.kr/app/applications/new
   key: ""
 
-  # API 커맨드 설정
-  # ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-  # 커맨드 파라미터 안내
-  # ----------------------------------------
-  # 후원 정보
-  #   {id}            후원 고유 ID          | 예시) 6791c65c2abf284c382e10cd
-  #   {platform}      후원 플랫폼           | 예시) soop, chzzk
-  #   {cnt}           후원 개수             | 예시) 1
-  #   {amount}        후원 금액             | 예시) 100 (치즈 개당 1원, 별풍선 개당 100원)
-  #
-  # 플레이어/스트리머 정보
-  #   {player}        마인크래프트 닉네임    | 예시) 헛삯
-  #   {uuid}          마인크래프트 UUID     | 예시) 620151a2-cb8c-4099-bbae-5700e6de19e0
-  #   {streamer_id}   스트리머 ID           | 예시) test1
-  #
-  # 후원자 정보
-  #   {donator_id}    후원자 ID             | 예시) test2
-  #   {donator_name}  후원자 닉네임          | 예시) 테스트 후원자
-  #   {message}       후원 메시지 (치지직)    | 예시) 에라잇 후원 받아랏
-  commands:
-    # 후원 커맨드 설정
-    # donation은 예시이며, 실제 커맨드는 직접 생성해야 합니다.
-    donation:
-      enabled: false
-      format: "donation {platform} {player} {cnt} {donator_name}"
+  # 채팅창에 보일 머리말 (예: [SSAPI])
+  prefix: "<aqua>[<yellow>SSAPI<aqua>]<reset> "
 
-    # 스트리머 닉네임 커맨드 설정
-    # setstreamernick은 예시이며, 실제 커맨드는 직접 생성해야 합니다.
-    # API 연동 시 스트리머 정보를 체크하여 닉네임 자동 변경에 사용됩니다.
-    streamernick:
-      enabled: false
-      format: "setstreamernick {player} {nickname}"
-  
-  # API 서버 설정
-  # ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-  # 특별한 이유가 없다면 기본 주소를 사용하시기 바랍니다.
+  # SSAPI 서버 주소 — 변경하지 마세요 (개발/테스트 외 용도)
   servers:
-    api: "https://api.ssapi.kr"
     socket: "https://socket.ssapi.kr"
+    api:    "https://api.ssapi.kr"
 
-  # 소켓 설정
-  # ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+  # 인터넷 연결 관련
   socket:
-    # 연결 타임아웃 (밀리초)
-    timeout: 3000
-    
-    # 재연결 설정
-    reconnection:
-      # 재연결 시도 여부
-      enabled: true
-      # 최대 재시도 횟수
-      attempts: 992147483647
-      # 재연결 대기 시간 (밀리초)
-      delay: 1000
-      # 최대 재연결 대기 시간 (밀리초)
-      max-delay: 3000
-    
-    # 로그인 재시도 대기 시간 (밀리초)
-    login-retry-delay: 1000
+    timeout_ms:           3000      # 서버 연결 시도 시간 (밀리초). 1000~5000 권장
+    reconnect:            true      # 연결이 끊기면 자동으로 다시 연결할까요?
+    reconnect_delay_ms:   1000      # 다시 연결까지 기다리는 시간 (밀리초)
+    reconnect_max_delay_ms: 30000   # 최대 대기 시간
+    reconnect_max_attempts: 10000   # 다시 시도 횟수. -1 로 두면 계속 시도
 
-# ======================================
-# 데이터 저장소 설정
-# ======================================
+
+# ─────────────────────────────────────────────────────────────────────
+# [2] 데이터 저장 방식
+# ─────────────────────────────────────────────────────────────────────
 storage:
-  # 저장 방식 선택
-  # ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-  # 사용 가능한 옵션: yml 또는 mysql
+  # 어디에 저장할까요?
+  #   yml   : 파일 (소규모 서버 추천)
+  #   mysql : MySQL DB (큰 서버 / 여러 서버 추천)
   type: "yml"
-  
-  # MySQL 설정
-  # ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-  # MySQL 저장소 사용 시 필수 설정 항목입니다.
+
+  # MySQL 쓸 때만 채워주세요
   mysql:
-    host: "localhost"
+    host: "localhost"               # DB 주소 (영문/숫자/./- 만 가능)
     port: 3306
-    database: "your_database"
-    username: "your_username"
-    password: "your_password"
-    
-    # 커넥션 풀 설정
-    # ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
-    # MySQL 연결을 효율적으로 관리하기 위한 설정입니다.
+    database: "ssapi"
+    username: "ssapi"
+    password: ""                    # 비밀번호 비우면 플러그인이 켜지지 않습니다
     pool:
-      # 최대 커넥션 개수
-      maximum-pool-size: 10
-      
-      # 최소 유휴 커넥션 개수
-      minimum-idle: 5
-      
-      # 최대 유휴 시간 (밀리초)
-      idle-timeout: 300000
-      
-      # 커넥션 최대 수명 (밀리초)
-      max-lifetime: 1800000
-      
-      # 커넥션 생성 타임아웃 (밀리초)
-      connection-timeout: 30000 
+      maximum_pool_size: 10         # 동시에 열어둘 DB 연결 최대 개수
+      minimum_idle:      5
+      idle_timeout_ms:   300000     # 5분 동안 안 쓰면 정리
+      max_lifetime_ms:   1800000    # 한 연결 최대 30분 후 재사용
+      connection_timeout_ms: 30000  # 연결 시도 시간
 
 
-# ======================================
-# 후원 금액별 동작 설정
-# ======================================
-donation-actions:
-  # 금액별 설정
-  # amount: action_type 형식으로 설정
-  # 사용 가능한 action_type:
-  # - GIVE_ITEM: 아이템 지급
-  # - RANDOM_EFFECT: 랜덤 버프/디버프
-  # - SPAWN_MOB: 몹 소환
-  # - RANDOM_TELEPORT: 랜덤 텔레포트
-  # - INSTANT_DEATH: 즉시 사망
-  amounts:
-    10000000: "GIVE_ITEM"
-    20000000: "RANDOM_EFFECT"
-    30000000: "SPAWN_MOB"
-    40000000: "RANDOM_TELEPORT"
-    50000000: "INSTANT_DEATH"
+# ─────────────────────────────────────────────────────────────────────
+# [3] 미션 (도전 / 대결미션)
+# ─────────────────────────────────────────────────────────────────────
+# 미션 활성화·시점은 대시보드(https://ssapi.kr) 에서 바꿉니다.
+# 이 파일에서는 플러그인 측 정산 처리 방식만 조정합니다.
+#
+# 💡 동시에 여러 미션이 진행 중이면 각 미션 별로 따로 처리됩니다.
+#    (mission_key 로 미션이 구분되며, 트리거·정산도 각 미션 별로 독립 발동)
+mission:
+  # 정산(settle) 시점에 미션의 후원들을 어떻게 처리할까요?
+  #
+  #   combined   : 미션에 들어온 모든 후원의 금액을 합쳐서 트리거 1회 발동 (기본)
+  #                예) 후원자 10명이 각자 후원 → 총 100,000원으로 트리거 1번
+  #
+  #   individual : 미션에 들어온 후원 하나하나를 따로 트리거 발동
+  #                예) 후원자 10명이 각자 후원 → 각 후원 금액으로 10번 트리거
+  #                ※ donors[] 배열을 시간순으로 순회하며 매번 트리거 매칭
+  #
+  # ※ 이 옵션은 settle 시점에만 적용됩니다.
+  #   receive / result 시점은 어차피 개별 후원이 그때그때 들어오므로 무관합니다.
+  settle_payout: "combined"
 
-  # 동작별 세부 설정
-  settings:
-    # 아이템 지급 설정
-    give-item:
-      # 지급할 아이템의 전체 NBT 데이터 (Base64로 인코딩됨) / 기본값 : 돌 1개
-      item-data: rO0ABXNyABpvcmcuYnVra2l0LnV0aWwuaW8uV3JhcHBlcvJQR+zxEm8FAgABTAADbWFwdAAPTGphdmEvdXRpbC9NYXA7eHBzcgA1Y29tLmdvb2dsZS5jb21tb24uY29sbGVjdC5JbW11dGFibGVNYXAkU2VyaWFsaXplZEZvcm0AAAAAAAAAAAIAAkwABGtleXN0ABJMamF2YS9sYW5nL09iamVjdDtMAAZ2YWx1ZXNxAH4ABHhwdXIAE1tMamF2YS5sYW5nLk9iamVjdDuQzlifEHMpbAIAAHhwAAAAA3QAAj09dAABdnQABHR5cGV1cQB+AAYAAAADdAAeb3JnLmJ1a2tpdC5pbnZlbnRvcnkuSXRlbVN0YWNrc3IAEWphdmEubGFuZy5JbnRlZ2VyEuKgpPeBhzgCAAFJAAV2YWx1ZXhyABBqYXZhLmxhbmcuTnVtYmVyhqyVHQuU4IsCAAB4cAAADv90AAVTVE9ORQ==
+  # individual 모드에서 후원자가 너무 많으면 처리 부하 방지
+  payout_safety:
+    max_donors_processed: 200    # 한 미션에서 처리할 최대 후원자 수 (초과분은 무시)
+    tick_spacing: 4              # 후원자 간 처리 간격 (20틱 = 1초). individual 일 때만 의미
 
-    # 몹 스폰 설정
-    spawn-mob:
-      # 몹 종류별 스폰 활성화 여부
-      enabled:
-        passive: true    # 비공격적 몹 (소, 양, 돼지 등)
-        neutral: true    # 중립적 몹 (늑대, 벌, 엔더맨 등)
-        hostile: true    # 공격적 몹 (좀비, 스켈레톤 등)
-        boss: true       # 보스 몹 (위더, 엔더 드래곤 등)
-      
-      # 난이도 설정 (1~5)
-      # 1: 매우 약함 (기본의 1/3)
-      # 2: 약함
-      # 3: 보통 (기본 게임 설정)
-      # 4: 강함
-      # 5: 매우 강함 (기본의 3배)
-      difficulty: 3 
-      
-    # 랜덤 버프/디버프 설정
-    random-effect:
-      # 이로운 버프 활성화 여부
-      positive-effects: true
-      # 해로운 디버프 활성화 여부
-      negative-effects: true
-    
-    # 랜덤 텔레포트 설정
-    random-teleport:
-      # 텔레포트 범위 설정
-      range:
-        x:
-          distance:
-            min: 3000   # 플레이어로부터 최소 이동 거리
-            max: 6000   # 플레이어로부터 최대 이동 거리
-          world-border:
-            min: -30000   # 월드 경계 최소값
-            max: 30000    # 월드 경계 최대값
-        z:
-          distance:
-            min: 3000   # 플레이어로부터 최소 이동 거리
-            max: 6000   # 플레이어로부터 최대 이동 거리
-          world-border:
-            min: -30000   # 월드 경계 최소값
-            max: 30000    # 월드 경계 최대값
-        y:
-          search-direction: "BOTTOM_TO_TOP"  # 가능한 값: BOTTOM_TO_TOP(아래에서 위로), TOP_TO_BOTTOM(위에서 아래로)
-          world-border:
-            min: 0     # 월드 높이 최소값
-            max: 256    # 월드 높이 최대값
-      
-      # 안전 지역 설정
-      safe-zone:
-        allow-water: true      # 물 위 텔레포트 허용
-        allow-lava: false      # 용암 위 텔레포트 허용
-        allow-solid: false     # 막힌 공간 텔레포트 허용
-      search:
-        max-attempts: 15  # 최대 시도 횟수
-        retry-delay: 2000 # 재시도 간격 (밀리초) ※ 주의 : 랜덤 텔포 시 이동 위치는 청크를 강제 로딩합니다. 간격이 너무 짧을 경우 청크로딩에 랙이 발생할 수 있습니다.
+  # 미션 시점별 액션
+  # ─ 사용 가능한 액션 타입·변수는 triggers.yml 헤더 주석 참조
+  # ─ enabled: false 면 매칭에서 제외 (기본 false, 필요한 것만 켜기)
+  # ─ 시점은 대시보드에서 활성화한 것만 발동됨
 
-    # 즉시 사망 설정
-    instant-death:
-      protect-inventory: true    # true: 인벤토리 보호 (아이템 드롭 안됨), false: 인벤토리 드롭
-      broadcast:
-        message: "§c{player}§f님이 §e{donator}§f님의 §c즉시 사망§f 후원으로 인해 사망하셨습니다!"
-        sound:
-          type: "ENTITY_LIGHTNING_BOLT_THUNDER"
-          volume: 1.0
-          pitch: 1.0
+  # ▸ on_receive: 들어온 미션 후원 한 건당 트리거 매칭 (donation 과 동일)
+  #   match.amount = 후원 amount
+  on_receive:
+    - id: receive_default
+      enabled: false
+      match: { op: any }
+      priority: 0
+      stop_on_match: false
+      actions:
+        - type: command
+          lines:
+            - "broadcast §6{donator_name}§f님이 미션 §e{mission_title}§f 발동!"
 
-# ======================================
-# 메시지 설정
-# ======================================
-messages:
-  # null로 설정하면 해당 메시지를 사용하지 않습니다.
-  api:
-    connect-success: "§f§a[성공] §fAPI 연동이 §b완료§f되었습니다."
-    connect-fail: "§f§c[실패] §fAPI 연동에 실패했습니다. (§e{message}§f)"
-    disconnect-success: "§f§a[성공] §fAPI 연동이 §b해제§f되었습니다."
-    disconnect-fail: "§f§c[실패] §fAPI 연동 해제에 실패했습니다. (§e{message}§f)"
-  admin:
-    no-permission: "§f이 명령어를 사용할 §e권한§f이 없습니다."
-    reload-success: "§f설정이 §b성공적으로§f 리로드되었습니다."
-    reload-fail: "§f설정 리로드 중 오류가 발생했습니다: §c{message}"
-    player-not-found: "§f해당 §e플레이어§f를 찾을 수 없습니다."
-    usage: |
-      §e=== API 관리 명령어 사용법 ===
-      §f/API관리 §b리로드 §f: 설정 파일을 다시 불러옵니다.
-      §f/API관리 §b시작 §f<§e플레이어§f> : 플레이어의 API 연동을 시작합니다.
-      §f/API관리 §b중지 §f<§e플레이어§f> : 플레이어의 API 연동을 중지합니다.
-      §f/API관리 §b연동 §f<§e플레이어§f> <§e숲§f|§e치지직§f> <아이디> : 플레이어의 API를 연동합니다.
-      §f/API관리 §b아이템 §f[§e플레이어§f] : 손에 든 아이템을 후원 지급 아이템으로 설정합니다.
-      §f/API관리 §b설정 초기화 §f: 후원 금액별 동작 설정을 초기화합니다.
-      §f/API관리 §b설정 추가 §f<§e금액§f> <§e동작§f> : 후원 금액별 동작을 추가합니다.
-      §f/API관리 §b설정 삭제 §f<§e금액§f> : 후원 금액별 동작을 삭제합니다.
-      §f/API관리 §b설정 확인 §f: 후원 금액별 동작 목록을 확인합니다.
-      §e============================
-  connect:
-    player-only: "§f이 명령어는 §e플레이어§f만 사용할 수 있습니다."
-    platform-invalid: "§f플랫폼은 '§e숲§f' 또는 '§e치지직§f'만 가능합니다."
-    soop-id-invalid: "§c스트리머 아이디는 §e소문자, 숫자, _, -§c로만 이루어져야 합니다."
-    chzzk-id-invalid: "§c치지직 채널ID는 §e12-32자의 영문자와 숫자§c로 이루어져야 합니다."
-    channel-info-fail: "§c§l{platform} §c채널 정보를 불러오는데 실패하였습니다. ID 오류 혹은 정지 중일 수 있습니다."
-    delete-data-fail: "§c기존 데이터 삭제 중 오류가 발생하였습니다."
-    save-data-fail: "§c데이터 저장 중 오류가 발생하였습니다."
-    connect-success: "§a이제 §b/API 시작§a, §b/API 중지 §a명령어를 통해 API를 시작/중단 할 수 있습니다."
-    connecting: "§f§bAPI 연동§f중입니다. 잠시만 기다려주세요."
-    not-connected: "§f§b/api §e연동 §f<§e숲§f|§e치지직§f> <아이디> 명령어를 통해 연동을 먼저 진행해주세요."
-    connect-start: "§fAPI를 §b시작§f합니다."
-    connect-test: null # 후원 테스트 기능이 있는 경우 사용해보세요 (예시: §aAPI가 잘 되는지 확인하시려면 1,100원을 후원받아보세요!)
-    connect-error: "§c연동 중 알 수 없는 오류가 발생하였습니다."
-    disconnecting: "§cAPI 연동을 중지합니다. 잠시만 기다려주세요."
-    disconnect-success: "§a이제부터 후원이 적용되지 않습니다."
-    disconnect-error: "§c연동 해제 중 알 수 없는 오류가 발생하였습니다."
-    enter-soop-id: "§c스트리머 아이디를 입력해주세요."
-    enter-chzzk-id: "§c치지직 채널 ID를 입력해주세요."
-    usage:
-      full: |
-        §e=== API 명령어 사용법 ===
-        §a/API 연동 <숲|치지직> <아이디> : §f스트리밍 플랫폼과 연동합니다.
-        §a/API 시작 : §fAPI 연동을 시작합니다.
-        §a/API 중지 : §fAPI 연동을 중지합니다.
-        §e========================
-      connect: |
-        §e연동 명령어 사용법:
-        §a/API 연동 <숲|치지직> <아이디>
-        §f예: /API 연동 숲 streamer2022
-        §f예: /API 연동 치지직 12c5af408cf9db9299c34e9313f8064a
+  # ▸ on_settle: 정산 시점 트리거 매칭
+  #   match.amount = settle_payout=combined → 총 합산 금액 / individual → 각 후원자 금액
+  on_settle:
+    # 작은 미션 (~10만원)
+    - id: small_settle
+      enabled: false
+      match: { op: range, min: 1000, max: 99999 }
+      priority: 100
+      stop_on_match: false
+      actions:
+        - type: command
+          lines: ["broadcast {mission_title} 정산: {total_amount_formatted}원"]
 
-    # 관리자 명령어 관련 메시지
-    admin-connect-success: "§a{player}님의 API가 성공적으로 연동되었습니다."
-    admin-connect-fail: "§c{player}님의 API 연동에 실패했습니다."
-    admin-disconnect-success: "§a{player}님의 API 연동이 해제되었습니다."
-    admin-disconnect-fail: "§c{player}님의 API 연동 해제에 실패했습니다."
-    admin-connection-start: "§a{player}님의 API를 시작합니다."
-    admin-connection-stop: "§a{player}님의 API를 중지합니다."
-  donation:
-    # 후원 메시지 포맷
-    # - {username} : 후원자 닉네임
-    # - {amount} : 후원 금액
-    # - {cnt} : 후원 개수
-    format: "§f[§e후원§f] §b{username}§f님이 §a{amount}§f원을 후원하셨습니다! (§e{cnt}§f개)"
-  actions:
-    give-item:
-      error: "§f아이템 §e지급 §f중 §c오류§f가 발생했습니다."
-      success: "§f아이템이 §a성공적으로 지급§f되었습니다!"
-    random-teleport:
-      searching: "§f[§e랜덤 텔레포트§f] 새로운 위치를 탐색합니다..."
-      safe-location-found: "§f[§e랜덤 텔레포트§f] 새로운 위치로 §a이동§f했습니다. 주변을 잘 살펴보세요!"
-      no-safe-location: "§f[§e랜덤 텔레포트§f] 적절한 위치를 찾지 못했습니다. 현재 위치에 머무릅니다."
-      teleporting-title: "§e§l랜덤 텔레포트"
-      teleporting-subtitle: "§f이동중..."
-    random-effect:
-      selection:
-        title: "§e§l당첨!"
-        searching-title: "§7§l선택 중..."
-      effects:
-        positive:
-          SPEED: "§a[버프]§f 신속"
-          FAST_DIGGING: "§a[버프]§f 성급함"
-          INCREASE_DAMAGE: "§a[버프]§f 힘"
-          JUMP: "§a[버프]§f 점프 강화"
-          REGENERATION: "§a[버프]§f 재생"
-          DAMAGE_RESISTANCE: "§a[버프]§f 저항"
-          FIRE_RESISTANCE: "§a[버프]§f 화염 저항"
-          WATER_BREATHING: "§a[버프]§f 수중 호흡"
-          INVISIBILITY: "§a[버프]§f 투명화"
-          NIGHT_VISION: "§a[버프]§f 야간 투시"
-          HEALTH_BOOST: "§a[버프]§f 생명력 강화"
-          ABSORPTION: "§a[버프]§f 흡수"
-          SATURATION: "§a[버프]§f 포화"
-          LUCK: "§a[버프]§f 행운"
-          SLOW_FALLING: "§a[버프]§f 느린 낙하"
-          DOLPHINS_GRACE: "§a[버프]§f 돌고래의 가호"
-          CONDUIT_POWER: "§a[버프]§f 전달체의 힘"
-          HERO_OF_THE_VILLAGE: "§a[버프]§f 마을의 영웅"
-        negative:
-          SLOW: "§c[디버프]§f 구속"
-          SLOW_DIGGING: "§c[디버프]§f 채굴 피로"
-          WEAKNESS: "§c[디버프]§f 나약함"
-          HARM: "§c[디버프]§f 즉시 데미지"
-          CONFUSION: "§c[디버프]§f 멀미"
-          BLINDNESS: "§c[디버프]§f 실명"
-          HUNGER: "§c[디버프]§f 허기"
-          POISON: "§c[디버프]§f 독"
-          WITHER: "§c[디버프]§f 시듦"
-          LEVITATION: "§c[디버프]§f 공중 부양"
-          UNLUCK: "§c[디버프]§f 불운"
-          GLOWING: "§c[디버프]§f 발광"
-          BAD_OMEN: "§c[디버프]§f 불길한 징조"
-    spawn-mob:
-      selection:
-        title: "§e§l당첨!"
-        searching-title: "§7§l선택 중..."
-      spawn-success: "§e{mob}이(가) 소환되었습니다!"
-      mobs:
-        passive:
-          ALLAY: "§2[동물]§f 알레이"
-          AXOLOTL: "§2[동물]§f 아홀로틀"
-          BAT: "§2[동물]§f 박쥐"
-          CAT: "§2[동물]§f 고양이"
-          CHICKEN: "§2[동물]§f 닭"
-          COD: "§2[동물]§f 대구"
-          COW: "§2[동물]§f 소"
-          DONKEY: "§2[동물]§f 당나귀"
-          FOX: "§2[동물]§f 여우"
-          FROG: "§2[동물]§f 개구리"
-          GOAT: "§2[동물]§f 염소"
-          HORSE: "§2[동물]§f 말"
-          LLAMA: "§2[동물]§f 라마"
-          MULE: "§2[동물]§f 노새"
-          MUSHROOM_COW: "§2[동물]§f 무시룸"
-          OCELOT: "§2[동물]§f 오셀롯"
-          PARROT: "§2[동물]§f 앵무새"
-          PIG: "§2[동물]§f 돼지"
-          PUFFERFISH: "§2[동물]§f 복어"
-          RABBIT: "§2[동물]§f 토끼"
-          SALMON: "§2[동물]§f 연어"
-          SHEEP: "§2[동물]§f 양"
-          SKELETON_HORSE: "§2[동물]§f 스켈레톤 말"
-          SNOWMAN: "§2[동물]§f 눈사람"
-          SQUID: "§2[동물]§f 오징어"
-          STRIDER: "§2[동물]§f 스트라이더"
-          TROPICAL_FISH: "§2[동물]§f 열대어"
-          TURTLE: "§2[동물]§f 거북이"
-          VILLAGER: "§2[동물]§f 주민"
-          WANDERING_TRADER: "§2[동물]§f 떠돌이 상인"
-        neutral:
-          BEE: "§e[중립]§f 벌"
-          CAVE_SPIDER: "§e[중립]§f 동굴 거미"
-          DOLPHIN: "§e[중립]§f 돌고래"
-          ENDERMAN: "§e[중립]§f 엔더맨"
-          IRON_GOLEM: "§e[중립]§f 철 골렘"
-          PANDA: "§e[중립]§f 판다"
-          PIGLIN: "§e[중립]§f 피글린"
-          POLAR_BEAR: "§e[중립]§f 북극곰"
-          SPIDER: "§e[중립]§f 거미"
-          WOLF: "§e[중립]§f 늑대"
-          ZOMBIFIED_PIGLIN: "§e[중립]§f 좀비화된 피글린"
-        hostile:
-          BLAZE: "§c[적대]§f 블레이즈"
-          CREEPER: "§c[적대]§f 크리퍼"
-          DROWNED: "§c[적대]§f 익사자"
-          ELDER_GUARDIAN: "§c[적대]§f 엘더 가디언"
-          ENDERMITE: "§c[적대]§f 엔더마이트"
-          EVOKER: "§c[적대]§f 소환사"
-          GHAST: "§c[적대]§f 가스트"
-          GUARDIAN: "§c[적대]§f 가디언"
-          HOGLIN: "§c[적대]§f 호글린"
-          HUSK: "§c[적대]§f 허스크"
-          MAGMA_CUBE: "§c[적대]§f 마그마 큐브"
-          PHANTOM: "§c[적대]§f 팬텀"
-          PIGLIN_BRUTE: "§c[적대]§f 피글린 브루트"
-          PILLAGER: "§c[적대]§f 약탈자"
-          RAVAGER: "§c[적대]§f 파괴수"
-          SHULKER: "§c[적대]§f 셜커"
-          SILVERFISH: "§c[적대]§f 좀벌레"
-          SKELETON: "§c[적대]§f 스켈레톤"
-          SLIME: "§c[적대]§f 슬라임"
-          STRAY: "§c[적대]§f 스트레이"
-          VEX: "§c[적대]§f 벡스"
-          VINDICATOR: "§c[적대]§f 변명자"
-          WITCH: "§c[적대]§f 마녀"
-          WITHER_SKELETON: "§c[적대]§f 위더 스켈레톤"
-          ZOGLIN: "§c[적대]§f 조글린"
-          ZOMBIE: "§c[적대]§f 좀비"
-          ZOMBIE_VILLAGER: "§c[적대]§f 좀비 주민"
-        boss:
-          ENDER_DRAGON: "§5§l[보스]§f 엔더 드래곤"
-          WITHER: "§5§l[보스]§f 위더"
+    # 중간 미션 (10만~100만)
+    - id: mid_settle
+      enabled: false
+      match: { op: range, min: 100000, max: 999999 }
+      priority: 50
+      stop_on_match: true
+      actions:
+        - { type: give_kit, kit: mission_mid_kit }
+        - { type: spawn_mob }
 
-    # 즉시 사망 메시지
-    instant-death:
-      broadcast:
-        message: "§c{player}§f님이 §e{donator}§f님의 §c즉시 사망§f 후원으로 인해 사망하셨습니다!"
-        sound:
-          type: "ENTITY_LIGHTNING_BOLT_THUNDER"
-          volume: 1.0
-          pitch: 1.0
-      protect-inventory:
-        title: "인벤... 세이브!!"
-        typing-speed: 2
-        sound:
-          type: "BLOCK_NOTE_BLOCK_HARP"
-          volume: 1.0
-          pitch: 1.0
+    # 큰 미션 (100만 이상) → VIP 보상
+    - id: big_settle
+      enabled: false
+      match: { op: gte, value: 1000000 }
+      priority: 10
+      stop_on_match: true
+      actions:
+        - { type: give_kit, kit: mission_vip_kit }
+        - type: command
+          lines: ['title @a title "{mission_title} 대규모 정산!"']
 
-# ======================================
-# 로그 설정
-# ======================================
+  # ▸ on_result: 미션 결과 메타가 들어왔을 때
+  #   금액 정보가 없어 match 는 항상 op:any 만 의미 있음.
+  #   변수: {mission_status} (SUCCESS/FAILURE/DRAW),
+  #         {winner}, {loser}, {rank}, {draw}, {my_team_name} (대결미션에서만 채워짐)
+  on_result:
+    - id: result_default
+      enabled: false
+      match: { op: any }      # on_result 는 op:any 만 사용
+      priority: 0
+      stop_on_match: false
+      actions:
+        - type: command
+          lines: ["broadcast §e{mission_title}§f 결과: §6{mission_status}§f"]
+
+
+# ─────────────────────────────────────────────────────────────────────
+# [4] 보상 지급 정책
+# ─────────────────────────────────────────────────────────────────────
+reward:
+  # 후원·미션이 들어왔는데 플레이어가 미접속 상태이면 어떻게 할까요?
+  #   false → 무시 (기본값, 안전)
+  #   true  → 접속 여부 상관없이 즉시 실행
+  #
+  # ⚠️ true 로 켜면 알아두실 점:
+  #  - 인벤토리 지급(give_kit) / 텔레포트 / 즉사 같은 player 의존 액션은 플레이어가 없어 자연 실패합니다
+  #  - command 액션은 콘솔에서 실행되므로 정상 작동합니다 (실제 사용 가치는 여기에 있음)
+  #
+  # ⚠️ 마인크래프트 기본 `give` 명령어는 오프라인 플레이어에게 동작하지 않습니다.
+  #    EssentialsX `/mail send` 또는 ItemsAdder 우편함 같은
+  #    **별도 선물함 플러그인이 설치되어 있을 때만** 의미 있는 옵션입니다.
+  #    이 경우 command 액션을 우편함 명령어로 작성하세요.
+  #
+  # ⚠️ Velocity / BungeeCord 같은 프록시 환경에서 true 로 켜면 추가 주의:
+  #    여러 서브 서버에 같은 플러그인이 깔려 있으면 모든 서버에서 발동되어
+  #    보상이 중복 지급될 수 있습니다. (단일 서버 환경에서는 안전합니다)
+  execute_when_offline: false
+
+
+# ─────────────────────────────────────────────────────────────────────
+# [5] 액션 세부 설정 (후원 / 미션 / 연동 모든 트리거 공통)
+# ─────────────────────────────────────────────────────────────────────
+actions:
+  give_kit:
+    # 킷을 줬는데 인벤토리가 꽉 차 있으면?
+    #   true  → 바닥에 떨어뜨려요
+    #   false → 그냥 무시 (아이템이 사라집니다)
+    drop_overflow: true
+
+  spawn_mob:
+    # 어떤 종류의 몹이 소환될 수 있나?
+    enabled:
+      passive: true       # 평화로운 동물 (소, 양, 돼지 등)
+      neutral: true       # 중립 (늑대, 벌, 엔더맨 등)
+      hostile: true       # 적대 (좀비, 스켈레톤 등)
+      boss:    false      # 보스 (위더, 엔더드래곤). 위험하니 기본 OFF
+    # 몹 강도: 1(아주 약함) ~ 5(아주 강함). 3 이 보통.
+    # 1~5 외의 값은 사용할 수 없습니다.
+    difficulty: 3
+
+  random_effect:
+    positive_effects: true   # 이로운 효과 (속도 증가, 재생 등)
+    negative_effects: true   # 해로운 효과 (느림, 독 등)
+    duration_ticks:   200    # 효과가 얼마나 오래 지속될지 (20틱 = 1초, 200 = 10초)
+    amplifier:        1      # 효과 강도 (0=I, 1=II, 2=III)
+
+  random_teleport:
+    # 텔레포트할 수 있는 좌표 범위
+    range:
+      x: { distance_min: 3000, distance_max: 6000, world_min: -30000, world_max: 30000 }
+      z: { distance_min: 3000, distance_max: 6000, world_min: -30000, world_max: 30000 }
+      # distance_min 은 반드시 distance_max 보다 작아야 해요
+      y:
+        # 안전한 Y 위치를 찾는 방향
+        #   BOTTOM_TO_TOP → 아래에서 위로 (지하부터 탐색)
+        #   TOP_TO_BOTTOM → 위에서 아래로 (지상부터 탐색)
+        search_direction: "BOTTOM_TO_TOP"
+        world_min: 0
+        world_max: 256
+    safe_zone:
+      allow_water: true       # 물 위로 텔레포트해도 OK?
+      allow_lava:  false      # 용암 위는 위험하니 기본 차단
+      allow_solid: false      # 블록 안에 박히는 것 차단
+    search:
+      max_attempts:  15       # 안전한 위치를 몇 번이나 시도해볼지
+      retry_delay_ms: 2000    # 시도 사이 간격
+
+  instant_death:
+    # 즉사 액션 시 인벤토리 보호 여부
+    #   true  → 아이템이 떨어지지 않고 그대로 보관됩니다
+    #   false → 평소처럼 아이템이 떨어집니다
+    protect_inventory: true
+
+
+# ─────────────────────────────────────────────────────────────────────
+# [6] 알림 사운드 켜기/끄기
+# ─────────────────────────────────────────────────────────────────────
+# 채팅 메시지 자체는 messages.yml 에서 직접 수정하거나 비우면 안 표시됩니다.
+# 여기서는 액션 발동 시 들리는 효과음만 켜고 끄는 옵션을 둡니다.
+sounds:
+  donation:        true     # 후원 들어왔을 때 효과음
+  mission:         true     # 미션 들어왔을 때 효과음
+  give_kit:        true     # 킷 지급 효과음
+  spawn_mob:       true     # 몹 소환 효과음
+  random_effect:   true     # 랜덤 효과 적용 효과음
+  random_teleport: true     # 랜덤 텔레포트 효과음
+  instant_death:   true     # 즉사 효과음
+
+
+# ─────────────────────────────────────────────────────────────────────
+# [7] 기록 (로그)
+# ─────────────────────────────────────────────────────────────────────
 logging:
-  # 로그 저장 활성화 여부
   enabled: true
-  
-  # 로그 저장 대상 설정
   save:
-    # 후원 로그 저장
-    donation: true
-    # 실행 실패 로그 저장
-    failure: true
+    donation: true            # 후원이 들어왔을 때 기록
+    mission:  true            # 미션이 들어왔을 때 기록
+    failure:  true            # 액션 실패했을 때 기록 (문제 추적용)
+  # 자세한 디버그 출력. 평소엔 OFF, 문제 추적 시에만 ON.
+  # 게임 안에서 /API관리 디버그 on 으로 잠깐 켤 수도 있어요.
+  debug: false
+
+
+# ─────────────────────────────────────────────────────────────────────
+# [8] 통계 / 업데이트 알림
+# ─────────────────────────────────────────────────────────────────────
+metrics:
+  # bStats 에 익명 통계 보내기 (서버 수, MC 버전 분포 등).
+  # 개인정보는 수집되지 않아요. 끄려면 false.
+  enabled: true
+
+update_check:
+  # 새 버전이 나오면 OP 가 접속할 때 알림
+  enabled: true

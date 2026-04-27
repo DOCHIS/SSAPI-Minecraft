@@ -1,0 +1,143 @@
+# ════════════════════════════════════════════════════════════════════
+#                  SSAPI 트리거 — 후원·미션 시 동작 정의
+# ════════════════════════════════════════════════════════════════════
+#  ✏️  쉬운 편집 방법:
+#   - 게임 안에서: /API관리 → 트리거 메뉴 (추천)
+#   - 직접 편집:   이 파일을 고친 다음 /API관리 리로드 실행
+#
+#  📌 트리거 매칭 규칙
+#   - enabled: false 인 트리거는 매칭에서 제외 (기본값 false — 필요한 것만 명시적으로 켭니다)
+#   - priority(우선순위) 가 큰 것부터 검사합니다
+#   - stop_on_match: true  → 첫 매칭에서 멈춰요
+#   - stop_on_match: false → 매칭되는 모든 트리거가 차례로 실행됩니다
+#
+#  📌 매칭 조건 (op)
+#   - eq    : 후원 금액이 value 와 똑같을 때
+#   - gte   : 후원 금액이 value 이상일 때
+#   - lte   : 후원 금액이 value 이하일 때
+#   - range : min ~ max 범위 안일 때
+#   - any   : 모든 후원에 적용 (금액 무관)
+#
+#  📌 액션 종류 (type)
+#   - command         : 서버 명령어 실행 (lines 에 여러 줄 가능)
+#   - give_kit        : kits.yml 의 킷 지급 (kit: 킷이름)
+#   - spawn_mob       : 랜덤 몹 소환
+#   - random_effect   : 랜덤 포션 효과
+#   - random_teleport : 랜덤 위치로 텔레포트
+#   - instant_death   : 즉사
+#
+#  ※ 미션 정산 처리 방식(combined/individual)은 config.yml 의 mission.settle_payout 로 설정.
+#
+#  📌 명령어에서 쓸 수 있는 변수 ({중괄호})
+#
+#   ─── 모든 트리거 공통 ───
+#   {player}             — 마인크래프트 플레이어 닉네임
+#   {uuid}               — 플레이어 UUID
+#   {streamer_id}        — 스트리머 ID (예: streamer2022)
+#   {streamer_nickname}  — 스트리머 채널 닉네임 (예: 헛삯)
+#   {platform}           — "soop" 또는 "chzzk"
+#   {platform_name}      — "숲" 또는 "치지직" (한글)
+#   {timestamp}          — 이벤트 발생 시각 (예: 2026-04-26 15:30:21)
+#
+#   ─── donation 트리거 (후원 관련) ───
+#   {amount}             — 후원 금액 (원) (예: 10000)
+#   {amount_formatted}   — 콤마 형식 (예: 10,000)
+#   {cnt}                — 후원 개수 (예: 100)
+#   {donator_name}       — 후원자 닉네임
+#   {donator_id}         — 후원자 ID
+#   {message}            — 후원 메시지 (없으면 빈 문자열)
+#   {donation_type}      — 후원 종류 (SVC_SENDBALLOON / SVC_VIDEOBALLOON / CHAT / VIDEO / PARTY 등)
+#
+#   ─── mission 트리거 (미션 관련) ───
+#   ▸ 공통 (미션 모든 시점)
+#   {mission_title}      — 미션 제목 (예: "100일 챌린지")
+#   {mission_key}        — 미션 고유 ID
+#   {mission_type}       — 원본 mission_type (CHALLENGE_GIFT, GIFT, SETTLE, NOTICE 등)
+#   {mission_phase}      — 시점 카테고리 (receive / settle / result)
+#   {mission_kind}       — 도전 / 대결 / 참가 (한글로 자동 번역)
+#
+#   ▸ 받을 때 (receive)
+#   {donator_name}       — 미션 후원자 닉네임
+#   {donator_id}         — 미션 후원자 ID
+#   {amount}             — 후원 금액
+#   {amount_formatted}   — 콤마 형식 금액
+#
+#   ▸ 정산할 때 (settle)
+#   {total_amount}       — 정산 총 금액 (원)
+#   {total_amount_formatted} — 콤마 형식 (예: 7,842,100)
+#   {total_cnt}          — 총 후원 개수
+#   {donor_count}        — 후원자 수
+#   {streamers}          — 정산 참여 스트리머 ID 목록 (대결미션이면 양쪽, 쉼표 구분)
+#   {top_donor_name}     — 최대 후원자 닉네임
+#   {top_donor_amount}   — 최대 후원자 금액
+#   {donors_summary}     — "철수(10,000원), 영희(5,000원), ..." 식 요약 문자열
+#
+#   ▸ 결과 메타 (result)
+#   {mission_status}     — SUCCESS / FAILURE / DRAW
+#   {winner}             — 승자 (대결미션에서만)
+#   {loser}              — 패자 (대결미션에서만)
+#   {rank}               — 순위 (대결미션에서만)
+#   {draw}               — 무승부 여부 (대결미션에서만, true/false)
+#   {my_team_name}       — 내 팀 이름 (대결미션)
+# ════════════════════════════════════════════════════════════════════
+
+# ───── API 연동 직후 (한 번만 발동) ─────
+# /API 연동 으로 스트리머 채널과 연동된 직후 1회 실행됩니다.
+# 닉네임 자동 설정 같은 "초기 셋업" 용도.
+# 변수 추가: {streamer_nickname} (스트리머 채널 닉네임), {streamer_profile_url}
+#
+# ⚠️ 아래 nickname_auto 트리거는 단순 예시입니다.
+#    실제 서버에서 사용 중인 닉네임 플러그인(CMI / Essentials / NickAPI 등) 의
+#    공식 문서를 확인 후 정확한 커맨드 syntax 로 수정해주세요.
+#    그 후 enabled: true 로 활성화하면 됩니다.
+connect:
+  - id: nickname_auto
+    enabled: false                 # 트리거 사용 여부. 기본 OFF.
+    match: { op: any }
+    priority: 0
+    stop_on_match: false
+    actions:
+      - type: command
+        lines:
+          - "setstreamernick {player} {streamer_nickname}"   # ← 사용 중인 플러그인 커맨드로 교체
+
+
+# ───── 후원이 들어왔을 때 ─────
+# 아래는 모두 예시 트리거입니다. 필요한 것만 enabled: true 로 켜세요.
+donation:
+  # 모든 후원에 인사말
+  - id: thanks
+    enabled: false
+    match: { op: any }
+    priority: 0
+    stop_on_match: false
+    actions:
+      - type: command
+        lines:
+          - "say {donator_name}님 {amount}원 후원 감사합니다!"
+
+  # 1,000원 ~ 9,999원 → 랜덤 포션 효과
+  - id: small_tip
+    enabled: false
+    match: { op: range, min: 1000, max: 9999 }
+    priority: 100
+    stop_on_match: false
+    actions:
+      - type: random_effect
+
+  # 50,000원 이상 → VIP 킷 + 몹 소환 + 전체 알림
+  - id: big_tip
+    enabled: false
+    match: { op: gte, value: 50000 }
+    priority: 50
+    stop_on_match: true                 # 큰 후원이면 위쪽 작은 후원 트리거는 무시
+    actions:
+      - { type: give_kit, kit: vip_kit }
+      - { type: spawn_mob }
+      - type: command
+        lines: ["broadcast §6{donator_name}§f님이 §c큰 후원§f을 하셨습니다!"]
+
+
+# ───── 미션 트리거는 여기에 없음 ─────
+# 미션 액션은 config.yml 의 [3] mission 섹션 (on_receive / on_settle / on_result)
+# 에서 동일한 매칭 시스템(op/priority/stop_on_match) 으로 설정합니다.

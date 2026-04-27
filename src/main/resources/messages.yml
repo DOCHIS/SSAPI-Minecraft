@@ -1,0 +1,521 @@
+# ════════════════════════════════════════════════════════════════════
+#               SSAPI 메시지 — 채팅·알림에 표시될 문구
+# ════════════════════════════════════════════════════════════════════
+#  📖 색상·서식 가이드 (MiniMessage):
+#     https://docs.advntr.dev/minimessage/format.html
+#
+#  💡 자주 쓰는 표현:
+#     <red>빨간 글씨</red>
+#     <gold>금색 글씨</gold>
+#     <click:run_command:'/API관리 도움말'>[클릭하면 명령어 실행]</click>
+#     <hover:show_text:'설명'>마우스 올리면 보임</hover>
+#
+#  📌 메시지마다 사용할 수 있는 변수는 줄 옆 주석에 적혀있어요
+#
+#  🎨 컬러 컨벤션 — 문장 전체 색칠 X, 키워드만 강조
+#     기본 글자색 = 흰색 (지정 안 함)
+#     <green>  : 성공·완료 키워드
+#     <red>    : 실패·오류 키워드
+#     <yellow> : 주의·경고·임시 상태 키워드
+#     <aqua>   : 사용자 닉네임·플레이어명·후원자명·명령어
+#     <gold>   : 금액·수량 등 수치
+#     <gray>   : 부가 설명·힌트
+# ════════════════════════════════════════════════════════════════════
+
+# 모든 메시지 앞에 prefix 가 자동으로 붙습니다.
+# 메시지 본문에 [후원] / [미션] 같은 괄호 prefix 를 다시 넣지 마세요.
+# 메시지를 보이지 않게 하려면 값을 빈 문자열 "" 로 두세요.
+prefix: "<aqua>[<yellow>SSAPI<aqua>]<reset> "
+
+
+# ─── 후원 연동 (사용자 본인) ───
+api:
+  connect_success: "후원 연동이 <green>완료</green>됐어요! <aqua>/API 시작</aqua> 으로 후원 보상 받기를 시작하거나 <aqua>/API 중지</aqua> 로 멈출 수 있어요."
+                                                              # 변수: 없음
+  connect_fail: "후원 연동 <red>실패</red>: <yellow><message></yellow>"
+                                                              # 변수: <message>
+  disconnect_success: "후원 연동이 <green>해제</green>됐어요."
+                                                              # 변수: 없음
+  disconnect_fail: "연동 해제 <red>실패</red>: <yellow><message></yellow>"
+                                                              # 변수: <message>
+  start: "이제부터 후원 보상을 <green>받을 수 있어요</green>."
+                                                              # 변수: 없음
+  stop: "후원 보상 받기를 <yellow>잠시 멈춥니다</yellow>."
+                                                              # 변수: 없음
+  connecting: "후원 연동 중이에요... <gray>잠시만요</gray>."
+                                                              # 변수: 없음
+  disconnecting: "연동을 해제하는 중이에요... <gray>잠시만요</gray>."
+                                                              # 변수: 없음
+  not_connected: "먼저 <aqua>/API 연동 <숲|치지직> <아이디></aqua> 명령어로 후원과 연결해 주세요."
+                                                              # 변수: 없음
+  connect_test: ""                                            # 비워두면 표시 안 됨
+
+  # 동시송출 연동
+  simulcast_connect_success: "<yellow><platform_name></yellow> 동시송출 연동을 <green>완료</green>했어요. 두 플랫폼의 후원이 모두 적용돼요."
+                                                              # 변수: <platform_name>
+  simulcast_connect_fail: "동시송출 연동 <red>실패</red>: <yellow><message></yellow>"
+                                                              # 변수: <message>
+  simulcast_disconnect_success: "동시송출 연동을 <green>해제</green>했어요. 메인 연동은 그대로 유지됩니다."
+                                                              # 변수: 없음
+  simulcast_disconnect_fail: "동시송출 해제 <red>실패</red>: <yellow><message></yellow>"
+                                                              # 변수: <message>
+
+  # 통신 오류 (사용자가 직접 해결 어려운 오류는 관리자 문의 안내 포함)
+  error:
+    network: "<yellow>SSAPI 서버</yellow>에 <red>연결할 수 없어요</red>. 인터넷 상태를 확인하고, 계속 발생하면 서버 관리자에게 알려 주세요."
+    timeout: "<yellow>SSAPI 서버</yellow> 응답이 <red>너무 오래</red> 걸려요. 잠시 후 다시 시도해 주세요. 반복되면 서버 관리자에게 문의해 주세요."
+    auth: "플러그인이 <yellow>SSAPI 서버</yellow>에 <red>인증되지 않았어요</red>. 서버 관리자에게 API 키 설정 확인을 요청해 주세요."
+    server: "<yellow>SSAPI 서버</yellow>에 <red>일시적인 문제</red>가 있어요. (코드 <yellow><code></yellow>) 잠시 후 다시 시도하고, 반복되면 서버 관리자에게 알려 주세요."  # 변수: <code>
+    schema: "플러그인이 <yellow>SSAPI 서버</yellow> 응답을 <red>이해하지 못했어요</red>. 최신 버전 업데이트가 필요합니다 — 서버 관리자에게 알려 주세요."
+    business: "<message>"                                     # 변수: <message>
+
+  # 연동 시 사유 메시지 — connect_fail / disconnect_fail 의 <message> 자리에 채워져 출력됨.
+  # "후원 연동 실패: <여기 메시지>" 같이 wrapper 안에 들어가므로
+  # 짧은 사유 + 권장 조치 형태로 작성 (wrapper 의 "실패" 단어 중복 X).
+  connect:
+    error:
+      platform_invalid: "지원하는 플랫폼은 <yellow>숲</yellow> 또는 <yellow>치지직</yellow> 입니다"
+      enter_soop_id: "숲 스트리머 아이디를 함께 입력해 주세요"
+      enter_chzzk_id: "치지직 채널 ID를 함께 입력해 주세요"
+      soop_id_invalid: "숲 아이디는 영문 소문자·숫자만 가능해요"
+      chzzk_id_invalid: "치지직 채널 주소(URL)의 끝부분 ID를 그대로 복사해 주세요"
+      channel_info_fail: "<yellow><platform_name></yellow> 채널 정보를 찾지 못했어요. 아이디를 확인해 주세요"  # 변수: <platform_name>
+      streamer_limit_exceeded: "등록 가능한 스트리머 수를 모두 사용했어요. 서버 관리자에게 슬롯 정리를 요청해 주세요"
+      streamer_already_registered: "이미 다른 마크 계정에 연동된 채널이에요. 기존 연동을 먼저 해제해 주세요"
+      streamer_uppercase_forbidden: "아이디는 영문 소문자만 입력해 주세요"
+      streamer_special_chars: "아이디에 특수문자가 들어있어요. 영문 소문자·숫자·-_ 만 사용해 주세요"
+      streamer_not_found: "해당 아이디의 스트리머를 찾을 수 없어요. 오타를 확인해 주세요"
+      streamer_not_registered: "아직 연동되지 않은 스트리머예요"
+      invalid_input: "입력값을 다시 확인해 주세요"
+
+      # 동시송출 연동 전용
+      primary_required_first: "먼저 <aqua>/API 연동</aqua> 으로 메인 연동을 해주세요"
+      same_platform_as_primary: "메인에 이미 같은 플랫폼이 연동되어 있어요. 다른 플랫폼만 동시송출에 추가할 수 있어요"
+      simulcast_already_set: "이미 동시송출 연동이 있어요. <aqua>/API 동시송출해제</aqua> 후 다시 시도해 주세요"
+
+
+# ─── 관리자 명령 (/API관리) ───
+admin:
+  no_permission: "이 명령어를 사용할 <red>권한이 없어요</red>."
+  reload_success: "설정을 <green>다시 불러왔어요</green>."
+  reload_fail: "설정 파일에 <red>문제</red>가 있어 다시 불러오지 못했어요. (<yellow><error></yellow>)"  # 변수: <error>
+  player_not_found: "<aqua><player></aqua> 플레이어를 <red>찾을 수 없어요</red>. 접속 중인지 확인해 주세요."  # 변수: <player>
+  player_only: "이 명령어는 <yellow>게임 안에서만</yellow> 쓸 수 있어요."
+  number_required: "<yellow><field></yellow>(은)는 숫자로 입력해 주세요."  # 변수: <field>
+  unknown: "<yellow><input></yellow> 명령어가 뭐예요? <click:suggest_command:'/API관리 도움말'><gold><underlined>[도움말 보기]</underlined></gold></click>"  # 변수: <input>
+  deprecated_alias: "<yellow><old></yellow> 명령어는 곧 없어질 예정이에요. 다음부터는 <aqua><new></aqua> 를 사용해 주세요."  # 변수: <old>, <new>
+
+  # /API관리로 다른 플레이어 연동/시작/중지
+  connect:
+    success: "<aqua><player></aqua> 님의 후원 연동을 <green>완료</green>했어요."
+    fail: "<aqua><player></aqua> 님의 후원 연동에 <red>실패</red>했어요."
+  disconnect:
+    success: "<aqua><player></aqua> 님의 후원 연동을 <green>해제</green>했어요."
+    fail: "<aqua><player></aqua> 님의 연동 해제에 <red>실패</red>했어요."
+  start: "<aqua><player></aqua> 님의 후원 보상 받기를 <green>시작</green>했어요."
+  stop: "<aqua><player></aqua> 님의 후원 보상 받기를 <yellow>중지</yellow>했어요."
+
+
+# ─── 테스트 명령 (/API테스트) ───
+test:
+  success: "<aqua><player></aqua> 님에게 <yellow><action></yellow> 을(를) <green>실행</green>했어요."  # 변수: <player>, <action>
+  amount_success: "<aqua><player></aqua> 님에게 <gold><amount>원</gold> 후원에 설정된 <yellow><action></yellow> 을(를) <green>실행</green>했어요."  # 변수: <player>, <amount>, <action>
+  no_action_for_amount: "이 금액에는 <red>설정된 동작이 없어요</red>."
+  invalid_input: "<red>액션 이름이나 금액</red>을 정확히 입력해 주세요."
+  available_actions: "<gray>사용 가능한 액션:</gray> <yellow><list></yellow>"  # 변수: <list>
+
+
+# ─── 후원 알림 (donation 트리거 발동 시 채팅에 표시) ───
+donation:
+  format: "<aqua><donator></aqua> 님이 <green><amount_formatted>원</green> 후원하셨습니다!"
+                                                              # 변수: <donator>, <amount>, <amount_formatted>, <cnt>,
+                                                              #       <streamer_id>, <streamer_nickname>, <platform>,
+                                                              #       <platform_name>, <message>, <donation_type>
+
+
+# ─── 미션 알림 (mission 트리거 발동 시 채팅에 표시) ───
+mission:
+  # 받을 때 (receive phase)
+  receive:
+    challenge_gift: "<aqua><donator></aqua> 님이 도전미션 '<mission_title>' 에 <green><amount_formatted>원</green> 후원하셨습니다!"
+                                                              # 변수: <donator>, <amount>, <amount_formatted>, <cnt>,
+                                                              #       <mission_title>, <mission_key>, <mission_type>, <mission_kind>
+    gift: "<aqua><donator></aqua> 님이 대결미션 '<mission_title>' 에 <green><amount_formatted>원</green> 후원하셨습니다!"
+    chzzk_mission: "<aqua><donator></aqua> 님이 미션 '<mission_title>' 을 시작했습니다. (<green><amount_formatted>원</green>)"
+    chzzk_participation: "<aqua><donator></aqua> 님이 미션 '<mission_title>' 에 참여 후원했습니다. (<green><amount_formatted>원</green>)"
+
+  # 정산할 때 (settle phase)
+  settle:
+    challenge: "도전미션 '<mission_title>' 정산 — 총 <green><total_amount_formatted>원</green> · 후원자 <yellow><donor_count>명</yellow>"
+                                                              # 변수: <mission_title>, <total_amount>, <total_amount_formatted>,
+                                                              #       <total_cnt>, <donor_count>, <streamers>, <donors_summary>
+    battle: "대결미션 '<mission_title>' 정산 — 총 <green><total_amount_formatted>원</green> · 후원자 <yellow><donor_count>명</yellow>"
+    top_donor: "최대 후원자: <gold><top_donor_name></gold> (<green><top_donor_amount>원</green>)"
+                                                              # 변수: <top_donor_name>, <top_donor_amount>
+
+  # 결과 메타 (result phase — 대결 변수는 대결미션에서만 채워짐)
+  result:
+    challenge: "도전미션 '<mission_title>' 결과: <yellow><mission_status></yellow>"
+                                                              # 변수: <mission_title>, <mission_status>, <mission_key>
+    battle: "대결미션 '<mission_title>' — 승자: <gold><winner></gold> · 패자: <gray><loser></gray> (순위: <rank>)"
+                                                              # 변수: <mission_title>, <winner>, <loser>, <rank>, <draw>, <my_team_name>
+    draw: "대결미션 '<mission_title>' 무승부!"                # 변수: <mission_title>
+
+
+# ─── 액션 실행 결과 (스트리머 본인 화면) ───
+action:
+  give_kit:
+    success: "<green>킷 '<kit>' 를 받았습니다."                # 변수: <kit>, <player>
+    error: "<red>킷 지급 중 오류가 발생했습니다: <error>"     # 변수: <kit>, <error>
+    inventory_full: "<yellow>인벤토리가 가득 차 일부 아이템이 바닥에 떨어졌습니다."
+
+  random_effect:
+    selection_title: "<gold>당첨!"
+    selection_searching: "<gray>선택 중..."
+    applied: "<green>효과 '<effect>' 가 적용되었습니다."      # 변수: <effect>, <duration_ticks>, <amplifier>
+    no_effect_available: "<red>적용 가능한 효과가 없습니다."
+    effects:
+      positive:
+        SPEED: "<green>[버프]<reset> 신속"
+        FAST_DIGGING: "<green>[버프]<reset> 성급함"
+        INCREASE_DAMAGE: "<green>[버프]<reset> 힘"
+        JUMP: "<green>[버프]<reset> 점프 강화"
+        REGENERATION: "<green>[버프]<reset> 재생"
+        DAMAGE_RESISTANCE: "<green>[버프]<reset> 저항"
+        FIRE_RESISTANCE: "<green>[버프]<reset> 화염 저항"
+        WATER_BREATHING: "<green>[버프]<reset> 수중 호흡"
+        INVISIBILITY: "<green>[버프]<reset> 투명화"
+        NIGHT_VISION: "<green>[버프]<reset> 야간 투시"
+        HEALTH_BOOST: "<green>[버프]<reset> 생명력 강화"
+        ABSORPTION: "<green>[버프]<reset> 흡수"
+        SATURATION: "<green>[버프]<reset> 포화"
+        LUCK: "<green>[버프]<reset> 행운"
+        SLOW_FALLING: "<green>[버프]<reset> 느린 낙하"
+        DOLPHINS_GRACE: "<green>[버프]<reset> 돌고래의 가호"
+        CONDUIT_POWER: "<green>[버프]<reset> 전달체의 힘"
+        HERO_OF_THE_VILLAGE: "<green>[버프]<reset> 마을의 영웅"
+      negative:
+        SLOW: "<red>[디버프]<reset> 구속"
+        SLOW_DIGGING: "<red>[디버프]<reset> 채굴 피로"
+        WEAKNESS: "<red>[디버프]<reset> 나약함"
+        HARM: "<red>[디버프]<reset> 즉시 데미지"
+        CONFUSION: "<red>[디버프]<reset> 멀미"
+        BLINDNESS: "<red>[디버프]<reset> 실명"
+        HUNGER: "<red>[디버프]<reset> 허기"
+        POISON: "<red>[디버프]<reset> 독"
+        WITHER: "<red>[디버프]<reset> 시듦"
+        LEVITATION: "<red>[디버프]<reset> 공중 부양"
+        UNLUCK: "<red>[디버프]<reset> 불운"
+        GLOWING: "<red>[디버프]<reset> 발광"
+        BAD_OMEN: "<red>[디버프]<reset> 불길한 징조"
+
+  random_teleport:
+    searching: "<gray>안전한 위치를 찾는 중..."
+    success: "<green>새로운 위치로 이동했습니다."              # 변수: <x>, <y>, <z>, <world>
+    no_safe_location: "<red>안전한 위치를 찾지 못했습니다. 현재 위치에 머무릅니다."
+    title: "<gold>랜덤 텔레포트"
+    subtitle: "<gray>이동 중..."
+
+  spawn_mob:
+    selection_title: "<gold>당첨!"
+    selection_searching: "<gray>선택 중..."
+    success: "<gold><mob></gold> 이(가) 소환되었습니다!"      # 변수: <mob>, <category>
+    no_mob_available: "<red>소환할 수 있는 몹이 없습니다."
+    mobs:
+      passive:
+        ALLAY: "<dark_green>[동물]<reset> 알레이"
+        AXOLOTL: "<dark_green>[동물]<reset> 아홀로틀"
+        BAT: "<dark_green>[동물]<reset> 박쥐"
+        CAT: "<dark_green>[동물]<reset> 고양이"
+        CHICKEN: "<dark_green>[동물]<reset> 닭"
+        COD: "<dark_green>[동물]<reset> 대구"
+        COW: "<dark_green>[동물]<reset> 소"
+        DONKEY: "<dark_green>[동물]<reset> 당나귀"
+        FOX: "<dark_green>[동물]<reset> 여우"
+        FROG: "<dark_green>[동물]<reset> 개구리"
+        GOAT: "<dark_green>[동물]<reset> 염소"
+        HORSE: "<dark_green>[동물]<reset> 말"
+        LLAMA: "<dark_green>[동물]<reset> 라마"
+        MULE: "<dark_green>[동물]<reset> 노새"
+        MUSHROOM_COW: "<dark_green>[동물]<reset> 무시룸"
+        OCELOT: "<dark_green>[동물]<reset> 오셀롯"
+        PARROT: "<dark_green>[동물]<reset> 앵무새"
+        PIG: "<dark_green>[동물]<reset> 돼지"
+        PUFFERFISH: "<dark_green>[동물]<reset> 복어"
+        RABBIT: "<dark_green>[동물]<reset> 토끼"
+        SALMON: "<dark_green>[동물]<reset> 연어"
+        SHEEP: "<dark_green>[동물]<reset> 양"
+        SKELETON_HORSE: "<dark_green>[동물]<reset> 스켈레톤 말"
+        SNOWMAN: "<dark_green>[동물]<reset> 눈사람"
+        SQUID: "<dark_green>[동물]<reset> 오징어"
+        STRIDER: "<dark_green>[동물]<reset> 스트라이더"
+        TROPICAL_FISH: "<dark_green>[동물]<reset> 열대어"
+        TURTLE: "<dark_green>[동물]<reset> 거북이"
+        VILLAGER: "<dark_green>[동물]<reset> 주민"
+        WANDERING_TRADER: "<dark_green>[동물]<reset> 떠돌이 상인"
+      neutral:
+        BEE: "<yellow>[중립]<reset> 벌"
+        CAVE_SPIDER: "<yellow>[중립]<reset> 동굴 거미"
+        DOLPHIN: "<yellow>[중립]<reset> 돌고래"
+        ENDERMAN: "<yellow>[중립]<reset> 엔더맨"
+        IRON_GOLEM: "<yellow>[중립]<reset> 철 골렘"
+        PANDA: "<yellow>[중립]<reset> 판다"
+        PIGLIN: "<yellow>[중립]<reset> 피글린"
+        POLAR_BEAR: "<yellow>[중립]<reset> 북극곰"
+        SPIDER: "<yellow>[중립]<reset> 거미"
+        WOLF: "<yellow>[중립]<reset> 늑대"
+        ZOMBIFIED_PIGLIN: "<yellow>[중립]<reset> 좀비화된 피글린"
+      hostile:
+        BLAZE: "<red>[적대]<reset> 블레이즈"
+        CREEPER: "<red>[적대]<reset> 크리퍼"
+        DROWNED: "<red>[적대]<reset> 익사자"
+        ELDER_GUARDIAN: "<red>[적대]<reset> 엘더 가디언"
+        ENDERMITE: "<red>[적대]<reset> 엔더마이트"
+        EVOKER: "<red>[적대]<reset> 소환사"
+        GHAST: "<red>[적대]<reset> 가스트"
+        GUARDIAN: "<red>[적대]<reset> 가디언"
+        HOGLIN: "<red>[적대]<reset> 호글린"
+        HUSK: "<red>[적대]<reset> 허스크"
+        MAGMA_CUBE: "<red>[적대]<reset> 마그마 큐브"
+        PHANTOM: "<red>[적대]<reset> 팬텀"
+        PIGLIN_BRUTE: "<red>[적대]<reset> 피글린 브루트"
+        PILLAGER: "<red>[적대]<reset> 약탈자"
+        RAVAGER: "<red>[적대]<reset> 파괴수"
+        SHULKER: "<red>[적대]<reset> 셜커"
+        SILVERFISH: "<red>[적대]<reset> 좀벌레"
+        SKELETON: "<red>[적대]<reset> 스켈레톤"
+        SLIME: "<red>[적대]<reset> 슬라임"
+        STRAY: "<red>[적대]<reset> 스트레이"
+        VEX: "<red>[적대]<reset> 벡스"
+        VINDICATOR: "<red>[적대]<reset> 변명자"
+        WITCH: "<red>[적대]<reset> 마녀"
+        WITHER_SKELETON: "<red>[적대]<reset> 위더 스켈레톤"
+        ZOGLIN: "<red>[적대]<reset> 조글린"
+        ZOMBIE: "<red>[적대]<reset> 좀비"
+        ZOMBIE_VILLAGER: "<red>[적대]<reset> 좀비 주민"
+      boss:
+        ENDER_DRAGON: "<dark_purple><bold>[보스]<reset> 엔더 드래곤"
+        WITHER: "<dark_purple><bold>[보스]<reset> 위더"
+
+  instant_death:
+    broadcast: "<red><player></red> 님이 <yellow><donator></yellow> 님의 즉시 사망 후원으로 사망하셨습니다!"
+                                                              # 변수: <player>, <donator>
+    protect_inventory_title: "<gold>인벤... 세이브!!"
+
+
+# ─── 명령어 안내 ───
+command:
+  unknown: "<red>알 수 없는 명령어: '<input>'. <click:suggest_command:'/API관리 도움말'><gold><underlined>[도움말]</underlined></gold></click>"
+  no_permission: "<red>권한이 없습니다."
+  player_only: "이 명령어는 <yellow>게임 안에서만</yellow> 쓸 수 있어요."
+  player_not_found: "<aqua><name></aqua> 플레이어를 <red>찾을 수 없어요</red>."   # 변수: <name>
+  number_required: "<yellow><field></yellow>(은)는 숫자로 입력해 주세요."         # 변수: <field>
+  generic_error: "<red>명령 실행 중 오류: <error>"                               # 변수: <error>
+  usage_prefix: "<yellow>사용법: <usage>"                                        # 변수: <usage>
+  help_header: "<yellow>/<root> 명령어:"                                         # 변수: <root>
+  help_entry: "<green>- <usage> <gray><italic><desc>"                            # 변수: <usage>, <desc>
+
+
+# ─── permission ───
+permission:
+  denied: "<red>권한이 없습니다."
+
+
+# ─── reload / save ───
+reload:
+  success: "설정을 <green>다시 불러왔어요</green>."
+  fail: "설정 파일에 <red>문제</red>가 있어 다시 불러오지 못했어요. (<yellow><error></yellow>)"
+  validation_failed: "<red>설정 검증 실패</red> — <yellow><count></yellow>건"     # 변수: <count>
+  validation_issue: "<gray><issue>"                                                # 변수: <issue>
+save:
+  success: "<green>상태 저장 완료"
+  fail: "<red>저장 실패: <error>"                                                  # 변수: <error>
+
+
+# ─── debug ───
+debug:
+  on: "<green>디버그 모드: ON"
+  off: "<yellow>디버그 모드: OFF"
+
+
+# ─── status ───
+status:
+  header: "<gold>=== SSAPI 상태 ==="
+  mission_enabled: "<yellow>미션 활성화: <reset><value>"                          # 변수: <value>
+  mission_hook_timings: "<yellow>hook_timings: <reset><value>"                    # 변수: <value>
+  connections_count: "<yellow>등록 connection: <reset><count>개"                  # 변수: <count>
+  storage_lookup_failed: "<red>storage 조회 실패: <error>"                         # 변수: <error>
+  my_header: "<gold>=== 내 연동 ==="
+  my_entry: "<yellow>[<type>]<reset> <platform> · <streamer_id>"                  # 변수: <type>, <platform>, <streamer_id>
+  my_lookup_failed: "<red>상태 조회 실패: <error>"                                 # 변수: <error>
+
+
+# ─── kit ───
+kit:
+  guide_create: "<yellow>/API관리 킷 추가 <name></yellow> 으로 새 킷을 만드세요"
+  edit_locked: "<red>다른 OP 가 편집 중입니다 (15초 후 자동 해제)"
+  delete_confirm: "<red>킷 '<name>' 삭제 — <yellow>/API관리 킷 삭제 <name></yellow> 로 확인하세요"   # 변수: <name>
+  list_chat: "<gray>킷 목록: <list>"                                              # 변수: <list>
+  edit_console_only: "<red>편집은 인게임에서만 가능합니다"
+  added: "<green>킷 '<name>' 생성됨"                                              # 변수: <name>
+  removed: "<red>킷 '<name>' 삭제됨"                                              # 변수: <name>
+  not_found: "<red>킷이 존재하지 않습니다: <name>"                                # 변수: <name>
+  rename_done: "<green>킷 표시명 변경: <new>"                                     # 변수: <new>
+  give_done: "<green>킷 '<kit>' 을(를) <player>에게 지급"                          # 변수: <kit>, <player>
+
+
+# ─── trigger ───
+trigger:
+  guide_add: "<yellow>/API관리 트리거 추가 <scope> <id>"                          # 변수: <scope>
+  scope_label: "<yellow><scope>:"                                                 # 변수: <scope>
+  scope_entry: "  <gray>- <id> (priority=<priority>, enabled=<enabled>)"          # 변수: <id>, <priority>, <enabled>
+  unknown_scope: "<red>알 수 없는 scope: <scope>"                                 # 변수: <scope>
+  not_found: "<red>트리거 없음: <id>"                                              # 변수: <id>
+  toggled: "<green>토글 완료: <scope>/<id>"                                       # 변수: <scope>, <id>
+
+
+# ─── mission (admin) ───
+mission_admin:
+  header: "<gold>=== 미션 설정 ==="
+  enabled: "<yellow>활성화: <reset><value>"                                       # 변수: <value>
+  hook_timings: "<yellow>hook_timings: <reset><value>"                            # 변수: <value>
+  dashboard_link: "<gray>변경은 대시보드에서: <reset>https://ssapi.kr/app"
+
+
+# ─── settings GUI ───
+settings_gui:
+  dashboard_link: "<yellow>대시보드에서 변경: <reset>https://ssapi.kr/app"
+
+
+# ─── config (validate / repair / backup / template) ───
+config_cmd:
+  validate_ok: "<green>모든 설정 파일 검증 통과"
+  validate_failed: "<red>검증 실패 — <yellow><count></yellow>건"                  # 변수: <count>
+  validate_issue: "<gray><issue>"                                                 # 변수: <issue>
+  repair_usage: "<yellow>사용법: /API관리 설정 복구 <files>"                       # 변수: <files>
+  repair_done: "<green><message>"                                                 # 변수: <message>
+  backup_failed: "<red><file> 백업 실패: <error>"                                  # 변수: <file>, <error>
+  backup_done: "<green>백업 완료 (<count>개): <dir>"                              # 변수: <count>, <dir>
+  template_usage: "<yellow>사용법: /API관리 설정 원본 <files>"                     # 변수: <files>
+  template_done: "<green><message>"                                               # 변수: <message>
+
+
+# ─── test (synthetic events) ───
+test_cmd:
+  donation_simulated: "<green>[테스트]<reset> <aqua><player></aqua> 에게 <gold><amount>원<reset> 후원 시뮬"   # 변수: <player>, <amount>
+  mission_receive: "<green>[테스트]<reset> 미션 receive 발사: <gold><amount>원"   # 변수: <amount>
+  mission_settle: "<green>[테스트]<reset> 미션 settle 발사: 총 <gold><total>원<reset> / <yellow><donor_count>명"  # 변수: <total>, <donor_count>
+  mission_result: "<green>[테스트]<reset> 미션 result 발사: SUCCESS"
+
+
+# ─── GUI 라벨 (인벤토리 제목·아이템 displayName/lore) ───
+# 모두 MessageService.legacy() 로 § 코드 String 으로 변환되어 사용됩니다.
+gui:
+  common:
+    back: "<red>← 뒤로"
+    save: "<green>저장"
+
+  main:
+    title: "<yellow>SSAPI 관리"
+    kit_label: "<yellow>킷 관리"
+    kit_lore_count: "<gray>현재 등록된 킷: <reset><count>개"          # 변수: <count>
+    kit_lore_hint: "<gray>클릭하여 편집"
+    trigger_label: "<yellow>트리거 관리"
+    trigger_lore_1: "<gray>클릭하여 트리거 편집"
+    trigger_lore_2: "<gray>후원·미션 매칭 규칙"
+    settings_label: "<yellow>설정"
+    settings_lore: "<gray>기본 옵션 토글"
+    mission_label: "<gold>미션 설정"
+    mission_lore_1: "<gray>대시보드에서 설정합니다"
+    mission_lore_2: "<yellow>https://ssapi.kr/app"
+    chat_dashboard_link: "<yellow>대시보드:<reset> https://ssapi.kr/app"
+
+  kit_list:
+    title: "<yellow>SSAPI 킷 목록"
+    item_label: "<yellow><name>"                                      # 변수: <name>
+    item_display: "<gray>표시: <reset><display>"                       # 변수: <display>
+    item_count: "<gray>아이템: <reset><count>개"                       # 변수: <count>
+    item_left_click: "<green>좌클릭<gray> - 편집"
+    item_right_click: "<red>우클릭<gray> - 삭제"
+    new_label: "<green>+ 새 킷"
+    new_lore_1: "<gray>새 킷을 만듭니다."
+    new_lore_2: "<gray>이름은 채팅으로 입력합니다."
+    chat_new: "<yellow>/API관리 킷 추가 <name></yellow><gray> 으로 새 킷을 만드세요"   # 변수: <name>
+    chat_delete_confirm: "<red>킷 '<name>' 삭제 — <yellow>/API관리 킷 삭제 <name></yellow><red> 로 확인하세요"  # 변수: <name>
+    chat_edit_locked: "<red>다른 OP 가 편집 중입니다 (15초 후 자동 해제)"
+
+  kit_editor:
+    title: "<yellow>킷 편집: <name>"                                   # 변수: <name>
+    rename_label: "<yellow>이름 변경"
+    rename_lore_current: "<gray>현재: <reset><display>"               # 변수: <display>
+    rename_lore_hint: "<gray>'/API관리 킷 이름 <name> <새이름>' 으로 변경"  # 변수: <name>
+    chat_saved: "<green>킷 저장됨: <name>"                             # 변수: <name>
+
+  trigger_list:
+    title: "<yellow>SSAPI 트리거: <scope>"                            # 변수: <scope>
+    item_label_enabled: "<green><id>"                                  # 변수: <id>
+    item_label_disabled: "<dark_gray><id>"                            # 변수: <id>
+    item_priority: "<gray>우선순위: <reset><priority>"                # 변수: <priority>
+    item_match: "<gray>매칭: <reset><match>"                          # 변수: <match>
+    item_stop: "<gray>stop_on_match: <reset><stop>"                   # 변수: <stop>
+    item_actions: "<gray>액션 수: <reset><count>"                     # 변수: <count>
+    item_left_click: "<green>좌클릭<gray> - 편집"
+    item_shift_click: "<yellow>쉬프트클릭<gray> - 활성/비활성 토글"
+    item_right_click: "<red>우클릭<gray> - 삭제 안내"
+    scope_active: "<green>▶ <label>"                                  # 변수: <label>
+    scope_inactive: "<gray><label>"                                   # 변수: <label>
+    scope_lore: "<gray>클릭하여 보기"
+    new_label: "<green>+ 새 트리거"
+    new_lore: "<gray>'/API관리 트리거 추가 <id>' 로 만드세요"
+    chat_new_command: "<yellow>/API관리 트리거 추가 <scope> <id>"     # 변수: <scope>
+    chat_delete_command: "<red>/API관리 트리거 삭제 <scope> <id>"     # 변수: <scope>, <id>
+    chat_toggle_command: "<yellow>/API관리 트리거 토글 <scope> <id>"  # 변수: <scope>, <id>
+
+  trigger_editor:
+    title: "<yellow>트리거: <id>"                                     # 변수: <id>
+    not_found: "<red>트리거를 찾을 수 없습니다"
+    enabled: "<green>활성화됨"
+    disabled: "<gray>비활성화됨"
+    toggle_hint: "<gray>클릭 - 토글"
+    match_label: "<yellow>매칭: <match>"                              # 변수: <match>
+    match_hint: "<gray>'/API관리 트리거 매칭 <scope> <id> ...'"        # 변수: <scope>, <id>
+    priority_label: "<yellow>우선순위: <priority>"                    # 변수: <priority>
+    priority_hint: "<gray>'/API관리 트리거 우선순위 <scope> <id> <숫자>'"  # 변수: <scope>, <id>
+    stop_label: "<yellow>stop_on_match: <stop>"                       # 변수: <stop>
+    actions_label: "<yellow>액션 (<count>개)"                         # 변수: <count>
+    actions_lore_entry: "<gray>- <reset><type>"                       # 변수: <type>
+    chat_toggle_command: "<yellow>/API관리 트리거 토글 <scope> <id>"  # 변수: <scope>, <id>
+    chat_stop_command: "<yellow>/API관리 트리거 stop <scope> <id>"    # 변수: <scope>, <id>
+
+  settings:
+    title: "<yellow>SSAPI 설정"
+    offline_label: "<yellow>오프라인 시 실행: <reset><value>"         # 변수: <value>
+    payout_label: "<yellow>미션 정산 처리: <reset><value>"            # 변수: <value>
+    payout_hint: "<gray>클릭 - combined ↔ individual"
+    debug_label: "<yellow>디버그 로그: <reset><value>"                # 변수: <value>
+    mission_label: "<gold>미션 hook_timings: <reset><value>"          # 변수: <value>
+    mission_hint_1: "<gray>대시보드에서만 변경 가능"
+    mission_hint_2: "<yellow>https://ssapi.kr/app"
+    toggle_hint: "<gray>클릭 - 토글"
+    chat_dashboard_link: "<yellow>대시보드에서 변경:<reset> https://ssapi.kr/app"
+
+
+# ─── 업데이트 알림 ───
+update_check:
+  available: "<gold>SSAPI v<version> 사용 가능"                       # 변수: <version>
+  link: "<gray>→ <yellow><url>"                                       # 변수: <url>
+
+
+# ─── InstantDeath 토템 아이템 (인벤세이브 모드) ───
+totem:
+  display: "<red>[인벤세이브] <reset>불사의 토템"
+  lore_1: "<gray>이 아이템은 시스템에서 자동으로 지급되는 아이템입니다."
+  lore_2: "<gray>정상적인 경우 즉시 사라져야 하는 아이템입니다."
+  lore_3: "<red>만약 인벤토리에 남아있다면 운영자에게 문의해주세요."
+
+
+# ─── 액션 인플레이어 알림 (SpawnMob / RandomEffect 의 sendTitle 본문) ───
+# selection_title / selection_searching 은 위 action.* 섹션에 이미 있음.
+# 여기는 본문 prefix 정리.
+spawn_mob:
+  no_mob_chat: "<red>현재 소환 가능한 몹이 없습니다."

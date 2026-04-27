@@ -2,6 +2,11 @@ package kr.ssapi.model;
 
 import java.time.LocalDateTime;
 
+/**
+ * 후원/미션 처리 이력 로그 모델.
+ *
+ * <p>isRun=Y 이면 보상이 실행됨, N 이면 플레이어가 오프라인 등의 이유로 미실행.
+ */
 public class ApiLog {
     private Long logNo;
     private String serverIp;

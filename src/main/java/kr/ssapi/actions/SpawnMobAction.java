@@ -1,271 +1,178 @@
 package kr.ssapi.actions;
 
-import kr.ssapi.config.Config;
+import kr.ssapi.services.MessageService;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.Sound;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
-public class SpawnMobAction implements DonationAction {
-    private JavaPlugin plugin;
-    private final ConcurrentLinkedQueue<RandomSelectionTask> selectionQueue = new ConcurrentLinkedQueue<>();
-    private final AtomicBoolean isProcessingQueue = new AtomicBoolean(false);
+/**
+ * 랜덤 몹 소환 액션 — 설정된 카테고리(passive/neutral/hostile/boss)에서 몹을 하나 뽑아 소환.
+ *
+ * <p>룰렛 애니메이션 후 결정. difficulty 에 따라 체력 배율 적용.
+ * RandomEffectAction 과 마찬가지로 큐 직렬화.
+ */
+public class SpawnMobAction implements Action {
+    private final JavaPlugin plugin;
+    private final MessageService messages;
+    private final ConcurrentLinkedQueue<SelectionTask> queue = new ConcurrentLinkedQueue<>();
+    private final AtomicBoolean processing = new AtomicBoolean(false);
 
-    private class RandomSelectionTask {
-        private final Player player;
-        private final List<?> options;
-        private final Consumer<Object> onComplete;
-
-        public RandomSelectionTask(Player player, List<?> options, Consumer<Object> onComplete) {
-            this.player = player;
-            this.options = options;
-            this.onComplete = onComplete;
+    private static class SelectionTask {
+        final Player player;
+        final List<String> options;
+        final java.util.function.Consumer<String> onComplete;
+        SelectionTask(Player p, List<String> o, java.util.function.Consumer<String> c) {
+            this.player = p; this.options = o; this.onComplete = c;
         }
     }
 
-    @Override
-    public void setPlugin(JavaPlugin plugin) {
+    public SpawnMobAction(JavaPlugin plugin, MessageService messages) {
         this.plugin = plugin;
+        this.messages = messages;
     }
 
     @Override
-    public void execute(Player player) {
-        Config config = Config.getInstance();
-        boolean passiveMobs = plugin.getConfig().getBoolean("donation-actions.settings.spawn-mob.enabled.passive", true);
-        boolean neutralMobs = plugin.getConfig().getBoolean("donation-actions.settings.spawn-mob.enabled.neutral", true);
-        boolean hostileMobs = plugin.getConfig().getBoolean("donation-actions.settings.spawn-mob.enabled.hostile", true);
-        boolean bossMobs = plugin.getConfig().getBoolean("donation-actions.settings.spawn-mob.enabled.boss", true);
+    public void execute(ActionSpec spec, ActionContext context) {
+        Player player = context.player;
+        if (player == null || !player.isOnline()) return;
 
-        Map<String, List<EntityType>> mobCategories = new HashMap<>();
-        Map<EntityType, String> mobNames = getMobNames();
-        List<EntityType> availableMobs = new ArrayList<>();
-
-        // 카테고리별로 몹 분류
-        mobCategories.put("passive", getPassiveMobs());
-        mobCategories.put("neutral", getNeutralMobs());
-        mobCategories.put("hostile", getHostileMobs());
-        mobCategories.put("boss", getBossMobs());
-
-        // 활성화된 카테고리의 몹만 추가
-        if (passiveMobs) availableMobs.addAll(mobCategories.get("passive"));
-        if (neutralMobs) availableMobs.addAll(mobCategories.get("neutral"));
-        if (hostileMobs) availableMobs.addAll(mobCategories.get("hostile"));
-        if (bossMobs) availableMobs.addAll(mobCategories.get("boss"));
-
-        if (!availableMobs.isEmpty()) {
-            List<String> mobDisplayNames = availableMobs.stream()
-                .map(mobNames::get)
-                .collect(Collectors.toList());
-
-            showRandomSelectionTitle(player, mobDisplayNames, selectedObj -> {
-                String selectedName = (String) selectedObj;
-                EntityType selectedType = availableMobs.stream()
-                    .filter(type -> mobNames.get(type).equals(selectedName))
-                    .findFirst()
-                    .orElse(EntityType.PIG);
-
-                Entity mob = player.getWorld().spawnEntity(player.getLocation(), selectedType);
-                applyDifficulty(mob);
-                playSpawnSound(player, selectedType, mobCategories);
-
-                String spawnMessage = config.getMessage("messages.actions.spawn-mob.spawn-success")
-                    .replace("{mob}", selectedName);
-                if (!spawnMessage.isEmpty()) {
-                    player.sendMessage(spawnMessage);
-                }
-            });
-        } else {
-            player.sendMessage(Config.getInstance().getPrefix() + "§c현재 소환 가능한 몹이 없습니다.");
+        Map<String, EntityType> nameToType = new HashMap<>();
+        Map<EntityType, String> typeToCategory = new HashMap<>();
+        for (String category : new String[]{"passive", "neutral", "hostile", "boss"}) {
+            if (!plugin.getConfig().getBoolean("actions.spawn_mob.enabled." + category, true)) continue;
+            collectMobs("action.spawn_mob.mobs." + category, category, nameToType, typeToCategory);
         }
-    }
 
-    private Map<EntityType, String> getMobNames() {
-        Map<EntityType, String> mobNames = new HashMap<>();
-        Config config = Config.getInstance();
-        
-        // 비공격적 몹
-        for (EntityType type : EntityType.values()) {
-            String name = config.getMessage("messages.actions.spawn-mob.mobs.passive." + type.name());
-            if (!name.isEmpty()) {
-                mobNames.put(type, name);
-            }
-        }
-        
-        // 중립적 몹
-        for (EntityType type : EntityType.values()) {
-            String name = config.getMessage("messages.actions.spawn-mob.mobs.neutral." + type.name());
-            if (!name.isEmpty()) {
-                mobNames.put(type, name);
-            }
-        }
-        
-        // 적대적 몹
-        for (EntityType type : EntityType.values()) {
-            String name = config.getMessage("messages.actions.spawn-mob.mobs.hostile." + type.name());
-            if (!name.isEmpty()) {
-                mobNames.put(type, name);
-            }
-        }
-        
-        // 보스 몹
-        for (EntityType type : EntityType.values()) {
-            String name = config.getMessage("messages.actions.spawn-mob.mobs.boss." + type.name());
-            if (!name.isEmpty()) {
-                mobNames.put(type, name);
-            }
-        }
-        
-        return mobNames;
-    }
-
-    private void applyDifficulty(Entity mob) {
-        if (mob instanceof org.bukkit.entity.LivingEntity) {
-            org.bukkit.entity.LivingEntity livingMob = (org.bukkit.entity.LivingEntity) mob;
-            int difficulty = plugin.getConfig().getInt("donation-actions.settings.spawn-mob.difficulty", 3);
-            
-            switch (difficulty) {
-                case 5: // 매우 강함
-                    livingMob.setMaxHealth(livingMob.getMaxHealth() * 3);
-                    livingMob.setHealth(livingMob.getMaxHealth());
-                    break;
-                case 4: // 강함
-                    livingMob.setMaxHealth(livingMob.getMaxHealth() * 2);
-                    livingMob.setHealth(livingMob.getMaxHealth());
-                    break;
-                case 2: // 약함
-                    livingMob.setMaxHealth(livingMob.getMaxHealth() * 0.5);
-                    livingMob.setHealth(livingMob.getMaxHealth());
-                    break;
-                case 1: // 매우 약함
-                    livingMob.setMaxHealth(livingMob.getMaxHealth() * 0.3);
-                    livingMob.setHealth(livingMob.getMaxHealth());
-                    break;
-                default: // 보통 (3)
-                    break;
-            }
-        }
-    }
-
-    private void playSpawnSound(Player player, EntityType selectedType, Map<String, List<EntityType>> mobCategories) {
-        if (selectedType == EntityType.ENDER_DRAGON || selectedType == EntityType.WITHER) {
-            // 보스 몹일 경우
-            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 1.0f);
-        } else if (mobCategories.get("hostile").contains(selectedType)) {
-            // 적대적 몹일 경우
-            player.playSound(player.getLocation(), Sound.ENTITY_ZOMBIE_AMBIENT, 1.0f, 1.0f);
-        } else {
-            // 일반 몹일 경우
-            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
-        }
-    }
-
-    private void showRandomSelectionTitle(Player player, List<?> options, Consumer<Object> onComplete) {
-        selectionQueue.offer(new RandomSelectionTask(player, options, onComplete));
-        processNextInQueue();
-    }
-
-    private void processNextInQueue() {
-        if (isProcessingQueue.get() || selectionQueue.isEmpty()) {
+        if (nameToType.isEmpty()) {
+            messages.send(player, "action.spawn_mob.no_mob_available");
             return;
         }
 
-        isProcessingQueue.set(true);
-        RandomSelectionTask task = selectionQueue.poll();
-        if (task != null) {
-            executeRandomSelection(task.player, task.options, task.onComplete);
+        List<String> displayNames = new ArrayList<>(nameToType.keySet());
+        enqueueSelection(player, displayNames, selectedName -> {
+            EntityType selectedType = nameToType.get(selectedName);
+            if (selectedType == null) return;
+
+            Entity mob = player.getWorld().spawnEntity(player.getLocation(), selectedType);
+            applyDifficulty(mob);
+            playSpawnSound(player, typeToCategory.getOrDefault(selectedType, "passive"));
+            messages.send(player, "action.spawn_mob.success",
+                "mob", selectedName,
+                "category", typeToCategory.getOrDefault(selectedType, ""));
+        });
+    }
+
+    // messages.yml 의 몹 섹션을 읽어 표시명 → EntityType + 카테고리 매핑 구성
+    private void collectMobs(String key, String category, Map<String, EntityType> nameOut, Map<EntityType, String> categoryOut) {
+        ConfigurationSection section = messages.getSection(key);
+        if (section == null) return;
+        for (String name : section.getKeys(false)) {
+            EntityType type;
+            try { type = EntityType.valueOf(name); }
+            catch (IllegalArgumentException e) { continue; }
+            String display = messages.legacy(key + "." + name);
+            if (display.isEmpty()) continue;
+            nameOut.put(display, type);
+            categoryOut.put(type, category);
         }
     }
 
-    private void executeRandomSelection(Player player, List<?> options, Consumer<Object> onComplete) {
+    // difficulty 설정에 따라 소환된 몹의 최대 체력을 배율 조정
+    private void applyDifficulty(Entity mob) {
+        if (!(mob instanceof LivingEntity)) return;
+        LivingEntity living = (LivingEntity) mob;
+        int difficulty = plugin.getConfig().getInt("actions.spawn_mob.difficulty", 3);
+        double multiplier;
+        switch (difficulty) {
+            case 1: multiplier = 0.3; break;
+            case 2: multiplier = 0.5; break;
+            case 4: multiplier = 2.0; break;
+            case 5: multiplier = 3.0; break;
+            default: return;
+        }
+        living.setMaxHealth(living.getMaxHealth() * multiplier);
+        living.setHealth(living.getMaxHealth());
+    }
+
+    // 카테고리별 소환 사운드 재생
+    private void playSpawnSound(Player player, String category) {
+        if (!plugin.getConfig().getBoolean("sounds.spawn_mob", true)) return;
+        Sound sound;
+        switch (category) {
+            case "boss":    sound = Sound.ENTITY_WITHER_SPAWN; break;
+            case "hostile": sound = Sound.ENTITY_ZOMBIE_AMBIENT; break;
+            default:        sound = Sound.ENTITY_EXPERIENCE_ORB_PICKUP; break;
+        }
+        player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+    }
+
+    // 룰렛 작업을 큐에 추가하고 처리 중이 아니면 즉시 시작
+    private void enqueueSelection(Player player, List<String> options, java.util.function.Consumer<String> onComplete) {
+        queue.offer(new SelectionTask(player, options, onComplete));
+        processNext();
+    }
+
+    private void processNext() {
+        if (processing.get() || queue.isEmpty()) return;
+        processing.set(true);
+        SelectionTask task = queue.poll();
+        if (task != null) runSelection(task);
+    }
+
+    private void runSelection(SelectionTask task) {
         AtomicInteger count = new AtomicInteger(0);
-        AtomicInteger taskId = new AtomicInteger();
-        Random random = new Random();
+        int[] taskId = new int[1];
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        Player player = task.player;
+        boolean soundEnabled = plugin.getConfig().getBoolean("sounds.spawn_mob", true);
 
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
+        if (player.isOnline() && soundEnabled) {
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
+        }
 
-        taskId.set(Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+        taskId[0] = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+            if (!player.isOnline()) {
+                Bukkit.getScheduler().cancelTask(taskId[0]);
+                processing.set(false);
+                processNext();
+                return;
+            }
             if (count.get() >= 20) {
-                Bukkit.getScheduler().cancelTask(taskId.get());
-                Object selected = options.get(random.nextInt(options.size()));
-                String title = Config.getInstance().getMessage("messages.actions.spawn-mob.selection.title");
-                player.sendTitle(title, "§f" + selected.toString(), 10, 40, 10);
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-                onComplete.accept(selected);
-
+                Bukkit.getScheduler().cancelTask(taskId[0]);
+                String selected = task.options.get(random.nextInt(task.options.size()));
+                String title = messages.legacy("action.spawn_mob.selection_title");
+                player.sendTitle(title, selected, 10, 40, 10);
+                if (soundEnabled) {
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                }
+                task.onComplete.accept(selected);
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    isProcessingQueue.set(false);
-                    processNextInQueue();
+                    processing.set(false);
+                    processNext();
                 }, 60L);
                 return;
             }
-
-            Object randomOption = options.get(random.nextInt(options.size()));
-            String searchingTitle = Config.getInstance().getMessage("messages.actions.spawn-mob.selection.searching-title");
-            player.sendTitle(searchingTitle, "§f" + randomOption.toString(), 0, 5, 0);
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.0f);
+            String randomOption = task.options.get(random.nextInt(task.options.size()));
+            String searchingTitle = messages.legacy("action.spawn_mob.selection_searching");
+            player.sendTitle(searchingTitle, randomOption, 0, 5, 0);
+            if (soundEnabled) {
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.0f);
+            }
             count.incrementAndGet();
-        }, 0L, 2L));
+        }, 0L, 2L);
     }
-
-    private List<EntityType> getPassiveMobs() {
-        List<EntityType> passiveMobs = new ArrayList<>();
-        Config config = Config.getInstance();
-        
-        for (EntityType type : EntityType.values()) {
-            String name = config.getMessage("messages.actions.spawn-mob.mobs.passive." + type.name());
-            if (!name.isEmpty()) {
-                passiveMobs.add(type);
-            }
-        }
-        return passiveMobs;
-    }
-
-    private List<EntityType> getNeutralMobs() {
-        List<EntityType> neutralMobs = new ArrayList<>();
-        Config config = Config.getInstance();
-        
-        for (EntityType type : EntityType.values()) {
-            String name = config.getMessage("messages.actions.spawn-mob.mobs.neutral." + type.name());
-            if (!name.isEmpty()) {
-                neutralMobs.add(type);
-            }
-        }
-        return neutralMobs;
-    }
-
-    private List<EntityType> getHostileMobs() {
-        List<EntityType> hostileMobs = new ArrayList<>();
-        Config config = Config.getInstance();
-        
-        for (EntityType type : EntityType.values()) {
-            String name = config.getMessage("messages.actions.spawn-mob.mobs.hostile." + type.name());
-            if (!name.isEmpty()) {
-                hostileMobs.add(type);
-            }
-        }
-        return hostileMobs;
-    }
-
-    private List<EntityType> getBossMobs() {
-        List<EntityType> bossMobs = new ArrayList<>();
-        Config config = Config.getInstance();
-        
-        for (EntityType type : EntityType.values()) {
-            String name = config.getMessage("messages.actions.spawn-mob.mobs.boss." + type.name());
-            if (!name.isEmpty()) {
-                bossMobs.add(type);
-            }
-        }
-        return bossMobs;
-    }
-} 
+}

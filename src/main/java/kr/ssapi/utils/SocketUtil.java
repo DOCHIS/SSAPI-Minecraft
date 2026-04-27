@@ -2,88 +2,146 @@ package kr.ssapi.utils;
 
 import io.socket.client.IO;
 import io.socket.client.Socket;
-import kr.ssapi.config.Config;
+import kr.ssapi.config.MissionSettings;
 import kr.ssapi.events.DonationEvent;
+import kr.ssapi.events.MissionEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONObject;
 import org.xerial.snappy.Snappy;
+
 import java.net.URISyntaxException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
+/**
+ * Socket.IO 연결 관리 유틸리티 — 연결, 로그인, 이벤트 수신, 재연결, 종료를 담당.
+ *
+ * <p>donation / mission 이벤트는 Snappy 압축 해제 후 Bukkit 메인 스레드로 이벤트 발행.
+ * login 응답 미수신 시 타임아웃 후 재전송(sendLoginRequest 반복).
+ */
 public class SocketUtil {
+    private static JavaPlugin plugin;
     private static Socket socket;
-    private static boolean loginResponseReceived = false;
-    private static final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    private static volatile boolean loginResponseReceived = false;
+    private static ScheduledExecutorService executorService;
 
+    // 플러그인 인스턴스와 단일 스레드 스케줄러를 초기화
+    public static void init(JavaPlugin plugin) {
+        SocketUtil.plugin = plugin;
+        if (executorService == null || executorService.isShutdown()) {
+            executorService = Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "ssapi-socket-scheduler");
+                t.setDaemon(true);
+                return t;
+            });
+        }
+    }
+
+    // 소켓 옵션 구성 후 연결 시작, 이벤트 핸들러(connect/disconnect/login/donation/mission) 등록
     public static Socket initializeSocket() {
-        Config config = Config.getInstance();
+        if (plugin == null) {
+            init(JavaPlugin.getProvidingPlugin(SocketUtil.class));
+        }
+        org.bukkit.configuration.file.FileConfiguration cfg = plugin.getConfig();
         try {
             IO.Options opts = new IO.Options();
             opts.transports = new String[]{"websocket"};
-            opts.timeout = config.getSocketTimeout();
-            opts.reconnection = config.isSocketReconnectionEnabled();
-            opts.reconnectionAttempts = config.getSocketReconnectionAttempts();
-            opts.reconnectionDelay = config.getSocketReconnectionDelay();
-            opts.reconnectionDelayMax = config.getSocketReconnectionMaxDelay();
+            opts.timeout = cfg.getInt("api.socket.timeout_ms", 3000);
+            opts.reconnection = cfg.getBoolean("api.socket.reconnect", true);
+            opts.reconnectionAttempts = cfg.getInt("api.socket.reconnect_max_attempts", 10000);
+            opts.reconnectionDelay = cfg.getInt("api.socket.reconnect_delay_ms", 1000);
+            opts.reconnectionDelayMax = cfg.getInt("api.socket.reconnect_max_delay_ms", 30000);
 
-            socket = IO.socket(config.getSocketServer(), opts);
+            socket = IO.socket(cfg.getString("api.servers.socket", "https://socket.ssapi.kr"), opts);
 
             socket.on(Socket.EVENT_CONNECT, args -> {
-                System.out.println("[API] Connected to socket server");
+                plugin.getLogger().info("Socket connected");
                 loginResponseReceived = false;
                 sendLoginRequest();
             });
 
             socket.on(Socket.EVENT_DISCONNECT, args -> {
-                System.out.println("[API] Disconnected from socket server");
+                plugin.getLogger().info("Socket disconnected");
                 loginResponseReceived = false;
             });
 
             socket.on("login", args -> {
-                System.out.println("[API] Login response received");
+                plugin.getLogger().info("Login response received");
                 loginResponseReceived = true;
+                handleRoomInfo(args);
             });
 
-            socket.on("donation", args -> {
-                try {
-                    byte[] compressed = (byte[]) args[0];
-                    JSONObject donationData = parseCompressedData(compressed);
-                    if (donationData != null) {
-                        Bukkit.getScheduler().runTask(Bukkit.getPluginManager().getPlugin("SSApi"), () -> {
-                            DonationEvent event = new DonationEvent(donationData);
-                            Bukkit.getPluginManager().callEvent(event);
-                        });
-                    }
-                } catch (Exception e) {
-                    System.out.println("[API] 후원 데이터 처리 중 오류 발생");
-                    e.printStackTrace();
-                }
-            });
+            socket.on("roomInfo", SocketUtil::handleRoomInfo);
+
+            socket.on("donation", args -> handleCompressed(args, "donation",
+                json -> Bukkit.getPluginManager().callEvent(new DonationEvent(json))));
+
+            socket.on("mission", args -> handleCompressed(args, "mission", json -> {
+                JSONObject settings = json.optJSONObject("mission_settings");
+                if (settings != null) MissionSettings.update(settings);
+                Bukkit.getPluginManager().callEvent(new MissionEvent(json));
+            }));
 
             socket.connect();
             return socket;
 
         } catch (URISyntaxException e) {
-            e.printStackTrace();
+            plugin.getLogger().log(Level.SEVERE, "Socket URI 오류", e);
             return null;
         }
     }
 
+    // Snappy 압축 바이트 배열을 JSONObject 로 파싱 후 메인 스레드에서 handler 실행
+    private static void handleCompressed(Object[] args, String eventType, java.util.function.Consumer<JSONObject> handler) {
+        try {
+            byte[] compressed = (byte[]) args[0];
+            JSONObject data = parseCompressedData(compressed);
+            if (data != null) {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    try { handler.accept(data); }
+                    catch (Exception e) { plugin.getLogger().log(Level.WARNING, eventType + " 핸들러 실패", e); }
+                });
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, eventType + " 데이터 처리 실패", e);
+        }
+    }
+
+    private static void handleRoomInfo(Object[] args) {
+        if (args == null || args.length == 0) return;
+        try {
+            JSONObject roomInfo;
+            if (args[0] instanceof byte[]) {
+                roomInfo = parseCompressedData((byte[]) args[0]);
+            } else if (args[0] instanceof JSONObject) {
+                roomInfo = (JSONObject) args[0];
+            } else {
+                roomInfo = new JSONObject(String.valueOf(args[0]));
+            }
+            if (roomInfo != null) MissionSettings.update(roomInfo);
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "roomInfo 파싱 실패", e);
+        }
+    }
+
+    // API 키로 login 이벤트 전송 후 타임아웃 내 응답 없으면 재전송
     private static void sendLoginRequest() {
-        Config config = Config.getInstance();
-        socket.emit("login", config.getApiKey());
-        socket.emit("setReceiver", "login,donation,status");
+        org.bukkit.configuration.file.FileConfiguration cfg = plugin.getConfig();
+        socket.emit("login", cfg.getString("api.key", ""));
+        socket.emit("setReceiver", "login,donation,status,mission");
 
         executorService.schedule(() -> {
             if (!loginResponseReceived) {
-                System.out.println("[API] Login response timeout, retrying...");
+                plugin.getLogger().info("Login response timeout, retrying...");
                 sendLoginRequest();
             }
-        }, config.getSocketLoginRetryDelay(), TimeUnit.MILLISECONDS);
+        }, cfg.getInt("api.socket.reconnect_delay_ms", 1000), TimeUnit.MILLISECONDS);
     }
 
+    // logout 이벤트를 전송하고 소켓을 명시적으로 끊음
     public static void disconnect() {
         if (socket != null && socket.connected()) {
             socket.emit("logout");
@@ -91,22 +149,31 @@ public class SocketUtil {
         }
     }
 
+    public static void shutdown() {
+        try {
+            if (executorService != null && !executorService.isShutdown()) {
+                executorService.shutdownNow();
+                executorService.awaitTermination(2, TimeUnit.SECONDS);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // Snappy 바이트 배열을 압축 해제해 JSONObject 로 반환 (실패 시 null)
     public static JSONObject parseCompressedData(byte[] compressed) {
         try {
-            byte[] decompressed = Snappy.uncompressString(compressed).getBytes("UTF-8");
-            return new JSONObject(new String(decompressed, "UTF-8"));
+            String json = Snappy.uncompressString(compressed);
+            return new JSONObject(json);
         } catch (Exception e) {
-            System.out.println("[API] 데이터 파싱 오류 발생 / 원본 데이터: " + new String(compressed));
-            e.printStackTrace();
+            if (plugin != null) {
+                plugin.getLogger().log(Level.WARNING, "데이터 파싱 오류", e);
+            }
             return null;
         }
     }
 
-    public static Socket getSocket() {
-        return socket;
-    }
+    public static Socket getSocket() { return socket; }
 
-    public static boolean isConnected() {
-        return socket != null && socket.connected();
-    }
-} 
+    public static boolean isConnected() { return socket != null && socket.connected(); }
+}

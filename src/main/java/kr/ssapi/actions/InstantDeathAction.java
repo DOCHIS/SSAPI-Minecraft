@@ -1,136 +1,120 @@
 package kr.ssapi.actions;
 
-import kr.ssapi.config.Config;
+import kr.ssapi.services.MessageService;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-public class InstantDeathAction implements DonationAction {
-    private JavaPlugin plugin;
-    private String donatorName;
+/**
+ * 즉사 액션 — 대상 플레이어를 즉시 사망시킨다.
+ *
+ * <p>config.yml 의 {@code actions.instant_death.protect_inventory} 가 true 이면
+ * 죽기 직전 보조 손에 토템을 강제 지급해 아이템 손실 없이 부활시킴.
+ * 사망 후 전 플레이어에게 브로드캐스트 메시지 전송.
+ */
+public class InstantDeathAction implements Action {
+    private final JavaPlugin plugin;
+    private final MessageService messages;
 
-    @Override
-    public void setPlugin(JavaPlugin plugin) {
+    public InstantDeathAction(JavaPlugin plugin, MessageService messages) {
         this.plugin = plugin;
-    }
-
-    public void setDonatorName(String donatorName) {
-        this.donatorName = donatorName;
+        this.messages = messages;
     }
 
     @Override
-    public void execute(Player player) {
-        Config config = Config.getInstance();
-        boolean protectInventory = config.isInstantDeathProtectInventory();
+    public void execute(ActionSpec spec, ActionContext context) {
+        Player player = context.player;
+        if (player == null || !player.isOnline()) return;
 
-        player.playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 1.0f, 1.0f);
+        boolean protectInventory = plugin.getConfig().getBoolean("actions.instant_death.protect_inventory", true);
+        boolean soundEnabled = plugin.getConfig().getBoolean("sounds.instant_death", true);
+
+        if (soundEnabled) {
+            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 1.0f, 1.0f);
+        }
 
         if (protectInventory) {
-            PlayerInventory inventory = player.getInventory();
-            ItemStack offHandItem = inventory.getItemInOffHand();
-            boolean needsRestore = offHandItem != null && offHandItem.getType() != Material.AIR;
-            
-            // 왼손에 든 아이템이 있다면 백업
-            ItemStack backupItem = needsRestore ? offHandItem.clone() : null;
-            
-            // 타이핑 효과와 함께 메시지 표시
-            String title = config.getInstantDeathProtectTitle();
-            int typingSpeed = config.getInstantDeathTypingSpeed();
-            Sound typingSound = Sound.valueOf(config.getInstantDeathTypingSound());
-            float volume = (float) config.getInstantDeathTypingSoundVolume();
-            float pitch = (float) config.getInstantDeathTypingSoundPitch();
-            
-            new BukkitRunnable() {
-                private int currentChar = 0;
-                private final StringBuilder displayText = new StringBuilder();
-                
-                @Override
-                public void run() {
-                    if (currentChar >= title.length()) {
-                        this.cancel();
-                        // 타이핑이 끝나고 2초 후에 토템 지급 및 데미지
-                        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                            giveTotemsAndDamage(player, inventory, backupItem, needsRestore);
-                        }, 40L); // 2초 = 40틱
-                        return;
-                    }
-                    
-                    displayText.append(title.charAt(currentChar));
-                    player.sendTitle(displayText.toString(), "", 0, 20, 10);
-                    player.playSound(player.getLocation(), typingSound, volume, pitch);
-                    currentChar++;
-                }
-            }.runTaskTimer(plugin, 0L, typingSpeed);
+            startProtectedDeath(player);
         } else {
-            // 인벤토리 보호가 꺼져있을 때는 일반적인 사망 처리
             player.setHealth(0);
         }
 
-        // 브로드캐스트 설정이 켜져있을 때 메시지와 소리 전송
-        if (config.isInstantDeathBroadcastEnabled()) {
-            String broadcastMessage = config.getInstantDeathBroadcastMessage()
-                    .replace("{player}", player.getName())
-                    .replace("{donator}", donatorName);
-            
-            // 브로드캐스트 소리 설정
-            Sound broadcastSound = Sound.valueOf(config.getInstantDeathBroadcastSound());
-            float broadcastVolume = (float) config.getInstantDeathBroadcastSoundVolume();
-            float broadcastPitch = (float) config.getInstantDeathBroadcastSoundPitch();
-            
-            // 모든 온라인 플레이어에게 메시지와 소리 전송
-            for (Player onlinePlayer : plugin.getServer().getOnlinePlayers()) {
-                onlinePlayer.sendMessage(broadcastMessage);
-                onlinePlayer.playSound(onlinePlayer.getLocation(), broadcastSound, broadcastVolume, broadcastPitch);
-            }
-        }
-
-        String deathMessage = config.getMessage("messages.donation.death");
-        if (!deathMessage.isEmpty()) {
-            player.sendMessage(deathMessage);
-        }
+        broadcastDeath(player, context.placeholders);
     }
 
-    private void giveTotemsAndDamage(Player player, PlayerInventory inventory, ItemStack backupItem, boolean needsRestore) {
-        // 시스템용 불사의 토템 생성
-        ItemStack totem = new ItemStack(Material.TOTEM_OF_UNDYING);
-        org.bukkit.inventory.meta.ItemMeta meta = totem.getItemMeta();
-        meta.setDisplayName("§c[인벤세이브] §f불사의 토템");
-        meta.setLore(java.util.Arrays.asList(
-            "§7이 아이템은 시스템에서 자동으로 지급되는 아이템입니다.",
-            "§7정상적인 경우 즉시 사라져야 하는 아이템입니다.",
-            "§c만약 인벤토리에 남아있다면 운영자에게 문의해주세요."
-        ));
-        totem.setItemMeta(meta);
+    // 타이틀 애니메이션 출력 후 토템을 강제 지급해 아이템 손실 없이 사망 처리
+    private void startProtectedDeath(Player player) {
+        PlayerInventory inventory = player.getInventory();
+        ItemStack offHandItem = inventory.getItemInOffHand();
+        boolean needsRestore = offHandItem != null && offHandItem.getType() != Material.AIR;
+        ItemStack backupItem = needsRestore ? offHandItem.clone() : null;
 
-        // 토템 지급 및 데미지
+        String title = messages.legacy("action.instant_death.protect_inventory_title");
+        new BukkitRunnable() {
+            private int currentChar = 0;
+            private final StringBuilder displayText = new StringBuilder();
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) { cancel(); return; }
+                if (currentChar >= title.length()) {
+                    cancel();
+                    Bukkit.getScheduler().runTaskLater(plugin,
+                        () -> giveTotemAndDamage(player, inventory, backupItem, needsRestore), 40L);
+                    return;
+                }
+                displayText.append(title.charAt(currentChar));
+                player.sendTitle(displayText.toString(), "", 0, 20, 10);
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HARP, 1.0f, 1.0f);
+                currentChar++;
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+    }
+
+    // 보조 손에 토템을 장착하고 치명 데미지를 가한 뒤 토템을 원래 아이템으로 복원
+    private void giveTotemAndDamage(Player player, PlayerInventory inventory, ItemStack backupItem, boolean needsRestore) {
+        ItemStack totem = new ItemStack(Material.TOTEM_OF_UNDYING);
+        ItemMeta meta = totem.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(messages.legacy("totem.display"));
+            meta.setLore(Arrays.asList(
+                messages.legacy("totem.lore_1"),
+                messages.legacy("totem.lore_2"),
+                messages.legacy("totem.lore_3")
+            ));
+            totem.setItemMeta(meta);
+        }
+
         double damage = player.getMaxHealth() * 2;
         inventory.setItemInOffHand(totem);
         player.damage(damage);
 
-        // 아이템 복구
-        if (needsRestore) {
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                ItemStack currentOffHandItem = inventory.getItemInOffHand();
-                if (currentOffHandItem != null && currentOffHandItem.getType() == Material.TOTEM_OF_UNDYING) {
-                    inventory.setItemInOffHand(null);
-                }
-                inventory.setItemInOffHand(backupItem);
-            }, 1L);
-        } else {
-            // 복원할 아이템이 없는 경우 AIR로 설정
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                ItemStack currentOffHandItem = inventory.getItemInOffHand();
-                if (currentOffHandItem != null && currentOffHandItem.getType() == Material.TOTEM_OF_UNDYING) {
-                    inventory.setItemInOffHand(new ItemStack(Material.AIR));
-                }
-            }, 1L);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            ItemStack currentOffHandItem = inventory.getItemInOffHand();
+            if (currentOffHandItem != null && currentOffHandItem.getType() == Material.TOTEM_OF_UNDYING) {
+                inventory.setItemInOffHand(needsRestore ? backupItem : new ItemStack(Material.AIR));
+            }
+        }, 1L);
+    }
+
+    // 사망 메시지를 온라인 전체 플레이어에게 브로드캐스트
+    private void broadcastDeath(Player player, Map<String, String> placeholders) {
+        String donator = placeholders.getOrDefault("donator_name", "익명");
+        Map<String, String> map = new HashMap<>();
+        map.put("player", player.getName());
+        map.put("donator", donator);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            messages.send(p, "action.instant_death.broadcast", map);
         }
     }
-} 
+}

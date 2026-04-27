@@ -1,185 +1,159 @@
 package kr.ssapi.actions;
 
-import kr.ssapi.config.Config;
+import kr.ssapi.services.MessageService;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class RandomTeleportAction implements DonationAction {
-    private JavaPlugin plugin;
+import java.util.concurrent.ThreadLocalRandom;
 
-    @Override
-    public void setPlugin(JavaPlugin plugin) {
+/**
+ * 랜덤 텔레포트 액션 — 플레이어를 안전한 임의의 좌표로 이동.
+ *
+ * <p>비동기로 안전 위치를 탐색한 뒤 메인 스레드에서 텔레포트.
+ * config.yml 의 range / safe_zone / search 설정으로 범위·조건을 제어.
+ */
+public class RandomTeleportAction implements Action {
+    private final JavaPlugin plugin;
+    private final MessageService messages;
+
+    public RandomTeleportAction(JavaPlugin plugin, MessageService messages) {
         this.plugin = plugin;
+        this.messages = messages;
     }
 
     @Override
-    public void execute(Player player) {
-        Config config = Config.getInstance();
-        
-        String titleMsg = config.getMessage("messages.actions.random-teleport.teleporting-title");
-        String subtitleMsg = config.getMessage("messages.actions.random-teleport.teleporting-subtitle");
-        if (!titleMsg.isEmpty() && !subtitleMsg.isEmpty()) {
-            player.sendTitle(titleMsg, subtitleMsg, 10, 40, 10);
+    public void execute(ActionSpec spec, ActionContext context) {
+        Player player = context.player;
+        if (player == null || !player.isOnline()) return;
+
+        String title = messages.legacy("action.random_teleport.title");
+        String subtitle = messages.legacy("action.random_teleport.subtitle");
+        if (!title.isEmpty() && !subtitle.isEmpty()) {
+            player.sendTitle(title, subtitle, 10, 40, 10);
         }
-        
-        player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRIGGER, 1.0f, 1.0f);
+
+        if (plugin.getConfig().getBoolean("sounds.random_teleport", true)) {
+            player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRIGGER, 1.0f, 1.0f);
+        }
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            Location safeLoc = findSafeLocation(player, config);
-            if (safeLoc != null) {
-                Bukkit.getScheduler().runTask(plugin, () -> {
+            Location safeLoc = findSafeLocation(player);
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline()) return;
+                if (safeLoc != null) {
                     player.teleport(safeLoc);
-                    player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                    
-                    String successMsg = config.getMessage("messages.actions.random-teleport.safe-location-found");
-                    if (!successMsg.isEmpty()) {
-                        player.sendMessage(successMsg);
+                    if (plugin.getConfig().getBoolean("sounds.random_teleport", true)) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                     }
-                });
-            }
+                    messages.send(player, "action.random_teleport.success",
+                        "x", String.valueOf(safeLoc.getBlockX()),
+                        "y", String.valueOf(safeLoc.getBlockY()),
+                        "z", String.valueOf(safeLoc.getBlockZ()),
+                        "world", safeLoc.getWorld().getName());
+                } else {
+                    messages.send(player, "action.random_teleport.no_safe_location");
+                    if (plugin.getConfig().getBoolean("sounds.random_teleport", true)) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                    }
+                }
+            });
         });
     }
 
-    private Location findSafeLocation(Player player, Config config) {
-        final int maxAttempts = config.getInt("donation-actions.settings.random-teleport.search.max-attempts", 15);
-        final long retryDelay = config.getLong("donation-actions.settings.random-teleport.search.retry-delay", 2000);
-        int attempts = maxAttempts;
-        Location playerLoc = player.getLocation();
-        Location foundLocation = null;
-        
-        while (attempts > 0 && foundLocation == null) {
-            // X, Z 좌표 결정
-            int xDistance = generateRandomDistance(
-                config.getTeleportXMinDistance(),
-                config.getTeleportXMaxDistance()
-            );
-            xDistance *= Math.random() < 0.5 ? -1 : 1;
-            
-            int zDistance = generateRandomDistance(
-                config.getTeleportZMinDistance(),
-                config.getTeleportZMaxDistance()
-            );
-            zDistance *= Math.random() < 0.5 ? -1 : 1;
-            
-            // 새로운 위치 계산 및 월드 경계 제한 적용
-            int newX = Math.max(config.getTeleportXWorldBorderMin(),
-                    Math.min(config.getTeleportXWorldBorderMax(),
-                            playerLoc.getBlockX() + xDistance));
-            int newZ = Math.max(config.getTeleportZWorldBorderMin(),
-                    Math.min(config.getTeleportZWorldBorderMax(),
-                            playerLoc.getBlockZ() + zDistance));
+    // 비동기 스레드에서 안전한 위치를 탐색 (최대 max_attempts 회 반복)
+    private Location findSafeLocation(Player player) {
+        FileConfiguration cfg = plugin.getConfig();
+        int maxAttempts = cfg.getInt("actions.random_teleport.search.max_attempts", 15);
+        long retryDelay = cfg.getLong("actions.random_teleport.search.retry_delay_ms", 2000);
 
-            // 청크 로드 확인 및 로드
-            Location checkLoc = new Location(player.getWorld(), newX, 64, newZ);
+        int xMin = cfg.getInt("actions.random_teleport.range.x.distance_min", 3000);
+        int xMax = cfg.getInt("actions.random_teleport.range.x.distance_max", 6000);
+        int xWMin = cfg.getInt("actions.random_teleport.range.x.world_min", -30000);
+        int xWMax = cfg.getInt("actions.random_teleport.range.x.world_max", 30000);
+        int zMin = cfg.getInt("actions.random_teleport.range.z.distance_min", 3000);
+        int zMax = cfg.getInt("actions.random_teleport.range.z.distance_max", 6000);
+        int zWMin = cfg.getInt("actions.random_teleport.range.z.world_min", -30000);
+        int zWMax = cfg.getInt("actions.random_teleport.range.z.world_max", 30000);
+        int yWMin = cfg.getInt("actions.random_teleport.range.y.world_min", 0);
+        int yWMax = cfg.getInt("actions.random_teleport.range.y.world_max", 256);
+        boolean bottomToTop = "BOTTOM_TO_TOP".equalsIgnoreCase(
+            cfg.getString("actions.random_teleport.range.y.search_direction", "BOTTOM_TO_TOP"));
+        boolean allowWater = cfg.getBoolean("actions.random_teleport.safe_zone.allow_water", true);
+        boolean allowLava = cfg.getBoolean("actions.random_teleport.safe_zone.allow_lava", false);
+        boolean allowSolid = cfg.getBoolean("actions.random_teleport.safe_zone.allow_solid", false);
+
+        Location playerLoc = player.getLocation();
+        int attempts = maxAttempts;
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+
+        while (attempts > 0) {
+            int xDist = (xMin + random.nextInt(xMax - xMin + 1)) * (random.nextBoolean() ? -1 : 1);
+            int zDist = (zMin + random.nextInt(zMax - zMin + 1)) * (random.nextBoolean() ? -1 : 1);
+            int newX = clamp(playerLoc.getBlockX() + xDist, xWMin, xWMax);
+            int newZ = clamp(playerLoc.getBlockZ() + zDist, zWMin, zWMax);
+
             try {
+                Location chunkLoc = new Location(player.getWorld(), newX, 64, newZ);
                 Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                    if (!checkLoc.getChunk().isLoaded()) {
-                        return checkLoc.getChunk().load(true);
-                    }
+                    if (!chunkLoc.getChunk().isLoaded()) chunkLoc.getChunk().load(true);
                     return true;
                 }).get();
 
-                // Y축 탐색을 위한 범위 설정
-                int startY = config.isTeleportYSearchBottomToTop() ? 
-                    config.getTeleportYWorldBorderMin() : 
-                    config.getTeleportYWorldBorderMax();
-                int endY = config.isTeleportYSearchBottomToTop() ? 
-                    config.getTeleportYWorldBorderMax() : 
-                    config.getTeleportYWorldBorderMin();
-                int step = config.isTeleportYSearchBottomToTop() ? 1 : -1;
-
-                Location finalLoc = new Location(player.getWorld(), newX, startY, newZ);
-                Location[] foundSafeLoc = {null};
-
-                boolean isValid = Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                    for (int y = startY; config.isTeleportYSearchBottomToTop() ? y <= endY : y >= endY; y += step) {
-                        finalLoc.setY(y);
-                        if (isSafeLocation(finalLoc, config)) {
-                            foundSafeLoc[0] = finalLoc.clone();
-                            return true;
+                Location result = Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                    int startY = bottomToTop ? yWMin : yWMax;
+                    int endY = bottomToTop ? yWMax : yWMin;
+                    int step = bottomToTop ? 1 : -1;
+                    Location loc = new Location(player.getWorld(), newX, startY, newZ);
+                    for (int y = startY; bottomToTop ? y <= endY : y >= endY; y += step) {
+                        loc.setY(y);
+                        if (isSafeLocation(loc, allowWater, allowLava, allowSolid)) {
+                            return loc.clone().add(0, 1, 0);
                         }
                     }
-                    return false;
+                    return null;
                 }).get();
 
-                if (isValid && foundSafeLoc[0] != null) {
-                    foundLocation = foundSafeLoc[0].add(0, 1, 0);
-                    break;
-                } else {
-                    String searchingMsg = config.getMessage("messages.actions.random-teleport.searching");
-                    if (!searchingMsg.isEmpty()) {
-                        Bukkit.getScheduler().runTask(plugin, () -> 
-                            player.sendMessage(searchingMsg));
-                    }
-                }
-
+                if (result != null) return result;
+                Bukkit.getScheduler().runTask(plugin,
+                    () -> messages.send(player, "action.random_teleport.searching"));
             } catch (Exception e) {
-                e.printStackTrace();
+                plugin.getLogger().log(java.util.logging.Level.WARNING,
+                    "RandomTeleportAction 위치 탐색 오류", e);
             }
 
             attempts--;
-            try {
-                Thread.sleep(retryDelay);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            try { Thread.sleep(retryDelay); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
         }
-
-        if (foundLocation == null) {
-            String noSafeLocMsg = config.getMessage("messages.actions.random-teleport.no-safe-location");
-            if (!noSafeLocMsg.isEmpty()) {
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    player.sendMessage(noSafeLocMsg);
-                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-                });
-            }
-            return playerLoc;
-        }
-
-        return foundLocation;
+        return null;
     }
 
-    private int generateRandomDistance(int min, int max) {
-        return min + (int)(Math.random() * (max - min + 1));
+    private int clamp(int v, int min, int max) {
+        return Math.max(min, Math.min(max, v));
     }
 
-    private boolean isSafeLocation(Location loc, Config config) {
+    // 지면 블록과 위 2칸이 모두 안전한지 검사
+    private boolean isSafeLocation(Location loc, boolean allowWater, boolean allowLava, boolean allowSolid) {
         Block current = loc.getBlock();
         Block above1 = loc.clone().add(0, 1, 0).getBlock();
         Block above2 = loc.clone().add(0, 2, 0).getBlock();
-        
-        // 현재 블록의 타입 체크
+
         Material type = current.getType();
-        boolean isWater = type.toString().contains("WATER");
-        boolean isLava = type.toString().contains("LAVA");
+        boolean isWater = type == Material.WATER || type == Material.BUBBLE_COLUMN
+            || type == Material.KELP_PLANT || type == Material.SEAGRASS || type == Material.TALL_SEAGRASS;
+        boolean isLava = type == Material.LAVA;
         boolean isSolid = type.isSolid();
-        
-        // 막힌 공간 허용이면 위 공간 체크 안함
-        if (config.isTeleportAllowSolid()) {
-            if (isSolid) return true;
-        }
-        
-        // 위로 2칸이 막혀있으면 이동 불가 (막힌 공간 허용 아닐 때)
-        if (!above1.getType().isAir() || !above2.getType().isAir()) {
-            return false;
-        }
-        
-        // 물/용암/고체 블록 체크
-        if (isWater && config.isTeleportAllowWater()) {
-            return true;
-        }
-        else if (isLava && config.isTeleportAllowLava()) {
-            return true;
-        }
-        else if (isSolid) {
-            return true;
-        }
-        
-        return false;
+
+        if (allowSolid && isSolid) return true;
+        if (!above1.getType().isAir() || !above2.getType().isAir()) return false;
+        if (isWater && allowWater) return true;
+        if (isLava && allowLava) return true;
+        return isSolid;
     }
-} 
+}

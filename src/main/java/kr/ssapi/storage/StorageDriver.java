@@ -2,32 +2,27 @@ package kr.ssapi.storage;
 
 import kr.ssapi.model.ApiConnection;
 import kr.ssapi.model.ApiLog;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 연동 정보 및 로그의 영구 저장소 추상 인터페이스.
+ *
+ * <p>구현체: {@link YamlDriver} (기본), {@link MySQLDriver}.
+ * StorageManager 가 config.yml 의 storage.type 에 따라 선택.
+ */
 public interface StorageDriver {
     void initialize();
     void close();
-    
-    // 스트리머 연동 정보 저장
+
     void saveConnection(ApiConnection connection);
-    
-    // 스트리머 연동 정보 삭제
-    void deleteConnection(String uuid);
-    
-    // UUID로 연동 정보 조회
-    Optional<ApiConnection> getConnectionByUuid(String uuid);
-    
-    // 스트리머 ID와 플랫폼으로 연동 정보 조회
+    void deleteConnection(ApiConnection connection);
+
+    Optional<ApiConnection> getConnectionByUuidAndType(String uuid, ApiConnection.ConnectionType type);
+    List<ApiConnection> getConnectionsByUuid(String uuid);
     Optional<ApiConnection> getConnectionByStreamerIdAndPlatform(String streamerId, ApiConnection.Platform platform);
-    
-    // 모든 스트리머 목록 조회
     List<ApiConnection> getAllConnections();
-    
-    // 플랫폼별 스트리머 목록 조회
     List<ApiConnection> getConnectionsByPlatform(ApiConnection.Platform platform);
-    
-    // 후원 로그 저장
+
     void saveApiLog(ApiLog log);
-} 
+}

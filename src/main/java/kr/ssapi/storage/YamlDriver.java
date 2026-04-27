@@ -4,46 +4,52 @@ import kr.ssapi.model.ApiConnection;
 import kr.ssapi.model.ApiLog;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
-import java.io.File;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
-import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
-
+/**
+ * YAML 기반 StorageDriver 구현체 — 외부 DB 없이 파일만으로 동작.
+ *
+ * <p>연동 정보는 connections.yml, 로그는 logs.txt(JSON Lines).
+ * 로그 파일이 10MB 초과 시 타임스탬프 이름의 아카이브로 자동 로테이션.
+ */
 public class YamlDriver implements StorageDriver {
+    private static final long LOG_ROTATE_BYTES = 10L * 1024 * 1024;
+
     private final File dataFile;
-    private final File logFile;  // 단일 로그 파일
+    private final File logFile;
+    private final File logArchiveDir;
     private YamlConfiguration yaml;
     private final Gson gson;
-    
+
     public YamlDriver(File dataFolder) {
         this.dataFile = new File(dataFolder, "connections.yml");
-        this.logFile = new File(dataFolder, "logs.txt");  // 단일 로그 파일 경로
-        
-        // Gson 인스턴스 생성 시 LocalDateTime 어댑터 추가
+        this.logFile = new File(dataFolder, "logs.txt");
+        this.logArchiveDir = new File(dataFolder, "log-archive");
+
         this.gson = new GsonBuilder()
             .registerTypeAdapter(LocalDateTime.class, new TypeAdapter<LocalDateTime>() {
                 @Override
                 public void write(JsonWriter out, LocalDateTime value) throws IOException {
-                    out.value(value.toString());
+                    out.value(value == null ? null : value.toString());
                 }
 
                 @Override
@@ -52,13 +58,11 @@ public class YamlDriver implements StorageDriver {
                 }
             })
             .create();
-            
-        // 로그 파일의 부모 디렉토리가 없다면 생성
-        if (!logFile.getParentFile().exists()) {
-            logFile.getParentFile().mkdirs();
-        }
+
+        if (!logFile.getParentFile().exists()) logFile.getParentFile().mkdirs();
+        if (!logArchiveDir.exists()) logArchiveDir.mkdirs();
     }
-    
+
     @Override
     public void initialize() {
         if (!dataFile.exists()) {
@@ -68,23 +72,23 @@ public class YamlDriver implements StorageDriver {
             yaml = YamlConfiguration.loadConfiguration(dataFile);
         }
     }
-    
+
+    // yaml 객체를 dataFile(connections.yml)로 저장
     private void save() {
         try {
             yaml.save(dataFile);
         } catch (Exception e) {
-            e.printStackTrace();
+            java.util.logging.Logger.getLogger("SSApi")
+                .log(java.util.logging.Level.WARNING, "YamlDriver save 실패", e);
         }
     }
 
-    @Override
-    public void close() {
-        save();
-    }
+    @Override public void close() { save(); }
 
     @Override
     public void saveConnection(ApiConnection connection) {
-        String path = "connections." + connection.getUuid();
+        String typeKey = connection.getConnectionType().name().toLowerCase();
+        String path = "connections." + connection.getUuid() + "." + typeKey;
         yaml.set(path + ".platform", connection.getPlatform().name());
         yaml.set(path + ".streamerId", connection.getStreamerId());
         yaml.set(path + ".streamerName", connection.getStreamerName());
@@ -94,30 +98,36 @@ public class YamlDriver implements StorageDriver {
     }
 
     @Override
-    public Optional<ApiConnection> getConnectionByUuid(String uuid) {
-        String path = "connections." + uuid;
-        if (!yaml.contains(path)) {
-            return Optional.empty();
-        }
-        
-        return Optional.of(loadConnection(path));
+    public Optional<ApiConnection> getConnectionByUuidAndType(String uuid, ApiConnection.ConnectionType type) {
+        String path = "connections." + uuid + "." + type.name().toLowerCase();
+        if (!yaml.contains(path + ".platform")) return Optional.empty();
+        return Optional.of(loadConnection(uuid, type, path));
     }
 
     @Override
-    public Optional<ApiConnection> getConnectionByStreamerIdAndPlatform(String streamerId, ApiConnection.Platform platform) {
-        ConfigurationSection connections = yaml.getConfigurationSection("connections");
-        if (connections == null) {
-            return Optional.empty();
+    public List<ApiConnection> getConnectionsByUuid(String uuid) {
+        List<ApiConnection> out = new ArrayList<>();
+        for (ApiConnection.ConnectionType t : ApiConnection.ConnectionType.values()) {
+            getConnectionByUuidAndType(uuid, t).ifPresent(out::add);
         }
+        return out;
+    }
+
+    @Override
+    public Optional<ApiConnection> getConnectionByStreamerIdAndPlatform(String streamerId,
+                                                                       ApiConnection.Platform platform) {
+        ConfigurationSection connections = yaml.getConfigurationSection("connections");
+        if (connections == null) return Optional.empty();
 
         for (String uuid : connections.getKeys(false)) {
-            String path = "connections." + uuid;
-            if (yaml.getString(path + ".streamerId").equals(streamerId) &&
-                yaml.getString(path + ".platform").equals(platform.name())) {
-                return Optional.of(loadConnection(path));
+            for (ApiConnection.ConnectionType t : ApiConnection.ConnectionType.values()) {
+                String path = "connections." + uuid + "." + t.name().toLowerCase();
+                if (Objects.equals(yaml.getString(path + ".streamerId"), streamerId)
+                    && Objects.equals(yaml.getString(path + ".platform"), platform.name())) {
+                    return Optional.of(loadConnection(uuid, t, path));
+                }
             }
         }
-        
         return Optional.empty();
     }
 
@@ -125,13 +135,15 @@ public class YamlDriver implements StorageDriver {
     public List<ApiConnection> getAllConnections() {
         List<ApiConnection> result = new ArrayList<>();
         ConfigurationSection connections = yaml.getConfigurationSection("connections");
-        
-        if (connections != null) {
-            for (String uuid : connections.getKeys(false)) {
-                result.add(loadConnection("connections." + uuid));
+        if (connections == null) return result;
+        for (String uuid : connections.getKeys(false)) {
+            for (ApiConnection.ConnectionType t : ApiConnection.ConnectionType.values()) {
+                String path = "connections." + uuid + "." + t.name().toLowerCase();
+                if (yaml.contains(path + ".platform")) {
+                    result.add(loadConnection(uuid, t, path));
+                }
             }
         }
-        
         return result;
     }
 
@@ -139,46 +151,65 @@ public class YamlDriver implements StorageDriver {
     public List<ApiConnection> getConnectionsByPlatform(ApiConnection.Platform platform) {
         List<ApiConnection> result = new ArrayList<>();
         ConfigurationSection connections = yaml.getConfigurationSection("connections");
-        
-        if (connections != null) {
-            for (String uuid : connections.getKeys(false)) {
-                String path = "connections." + uuid;
-                if (yaml.getString(path + ".platform").equals(platform.name())) {
-                    result.add(loadConnection(path));
+        if (connections == null) return result;
+        for (String uuid : connections.getKeys(false)) {
+            for (ApiConnection.ConnectionType t : ApiConnection.ConnectionType.values()) {
+                String path = "connections." + uuid + "." + t.name().toLowerCase();
+                if (Objects.equals(yaml.getString(path + ".platform"), platform.name())) {
+                    result.add(loadConnection(uuid, t, path));
                 }
             }
         }
-        
         return result;
     }
 
     @Override
-    public void deleteConnection(String uuid) {
-        yaml.set("connections." + uuid, null);
+    public void deleteConnection(ApiConnection connection) {
+        String typeKey = connection.getConnectionType().name().toLowerCase();
+        yaml.set("connections." + connection.getUuid() + "." + typeKey, null);
+        ConfigurationSection cs = yaml.getConfigurationSection("connections." + connection.getUuid());
+        if (cs == null || cs.getKeys(false).isEmpty()) {
+            yaml.set("connections." + connection.getUuid(), null);
+        }
         save();
     }
 
-    private ApiConnection loadConnection(String path) {
+    // YAML 경로에서 ApiConnection 객체를 읽어 반환
+    private ApiConnection loadConnection(String uuid, ApiConnection.ConnectionType type, String path) {
         return new ApiConnection(
-            path.substring(path.lastIndexOf('.') + 1),
+            uuid,
             ApiConnection.Platform.valueOf(yaml.getString(path + ".platform")),
             yaml.getString(path + ".streamerId"),
             yaml.getString(path + ".streamerName"),
             yaml.getString(path + ".name"),
-            LocalDateTime.parse(yaml.getString(path + ".createdAt"))
+            LocalDateTime.parse(yaml.getString(path + ".createdAt")),
+            type
         );
     }
 
     @Override
     public void saveApiLog(ApiLog log) {
+        rotateIfTooLarge();
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
-            String jsonLog = gson.toJson(log);
-            writer.write(jsonLog);
+            writer.write(gson.toJson(log));
             writer.newLine();
             writer.flush();
         } catch (IOException e) {
-            e.printStackTrace();
+            java.util.logging.Logger.getLogger("SSApi")
+                .log(java.util.logging.Level.WARNING, "YamlDriver log 저장 실패", e);
         }
     }
 
-} 
+    // 로그 파일이 10MB 이상이면 아카이브 디렉토리로 이동
+    private void rotateIfTooLarge() {
+        try {
+            if (!logFile.exists() || logFile.length() < LOG_ROTATE_BYTES) return;
+            String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+            File archive = new File(logArchiveDir, "logs-" + stamp + ".txt");
+            Files.move(logFile.toPath(), archive.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            java.util.logging.Logger.getLogger("SSApi")
+                .log(java.util.logging.Level.WARNING, "log 로테이션 실패", e);
+        }
+    }
+}

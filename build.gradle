@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'kr.ssapi'
-version = '1.0.5'
+version = '2.0.0'
 
 repositories {
     mavenCentral()
@@ -23,12 +23,12 @@ dependencies {
     implementation 'org.json:json:20240303'
     implementation 'com.zaxxer:HikariCP:5.1.0'
     implementation 'com.mysql:mysql-connector-j:9.2.0'
-    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-    implementation 'com.squareup.okio:okio:3.8.0'
     implementation 'io.socket:socket.io-client:2.1.1'
     implementation 'io.socket:engine.io-client:2.1.0'
     implementation 'org.xerial.snappy:snappy-java:1.1.10.5'
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
+    // configurate-yaml — v2.0 에서는 미사용 (kits/triggers 자동 쓰기에 Bukkit YAML 사용).
+    // 향후 헤더 주석 보존 필요 시 도입 예정.
+    implementation 'org.bstats:bstats-bukkit:3.2.1'
 }
 
 def targetJavaVersion = 17
@@ -62,7 +62,10 @@ shadowJar {
     archiveClassifier.set('')
     minimize {
         exclude(dependency('org.json:json:.*'))
+        exclude(dependency('org.bstats:.*'))
     }
+    // 다른 플러그인과 충돌 방지를 위한 relocation
+    relocate 'org.bstats', 'kr.ssapi.libs.bstats'
 }
 
 tasks.build.dependsOn tasks.shadowJar
