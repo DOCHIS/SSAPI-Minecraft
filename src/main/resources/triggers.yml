@@ -35,6 +35,8 @@
 #   {uuid}               — 플레이어 UUID
 #   {streamer_id}        — 스트리머 ID (예: streamer2022)
 #   {streamer_nickname}  — 스트리머 채널 닉네임 (예: 헛삯)
+#   {streamer_nickname_safe} — 닉네임 명령어용 정리된 채널 닉네임
+#   {nickname}           — {streamer_nickname_safe} 와 동일한 v1 호환 별칭
 #   {platform}           — "soop" 또는 "chzzk"
 #   {platform_name}      — "숲" 또는 "치지직" (한글)
 #   {timestamp}          — 이벤트 발생 시각 (예: 2026-04-26 15:30:21)
@@ -84,7 +86,7 @@
 # ───── API 연동 직후 (한 번만 발동) ─────
 # /API 연동 으로 스트리머 채널과 연동된 직후 1회 실행됩니다.
 # 닉네임 자동 설정 같은 "초기 셋업" 용도.
-# 변수 추가: {streamer_nickname} (스트리머 채널 닉네임), {streamer_profile_url}
+# 변수 추가: {streamer_nickname} (원본 채널 닉네임), {nickname} (명령어용 닉네임), {streamer_profile_url}
 #
 # ⚠️ 아래 nickname_auto 트리거는 단순 예시입니다.
 #    실제 서버에서 사용 중인 닉네임 플러그인(CMI / Essentials / NickAPI 등) 의
@@ -99,7 +101,7 @@ connect:
     actions:
       - type: command
         lines:
-          - "setstreamernick {player} {streamer_nickname}"   # ← 사용 중인 플러그인 커맨드로 교체
+          - "nick {nickname} {player}"   # ← 사용 중인 플러그인 커맨드로 교체
 
 
 # ───── 후원이 들어왔을 때 ─────

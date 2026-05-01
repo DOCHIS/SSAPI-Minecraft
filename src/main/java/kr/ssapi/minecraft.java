@@ -136,7 +136,7 @@ public final class minecraft extends JavaPlugin {
     private void registerUserCommand() {
         CommandRouter router = new CommandRouter("api", messages);
         router
-            .register(new ConnectSub(this, messages, apiClient, apiErrorMapper, false))
+            .register(new ConnectSub(this, messages, apiClient, apiErrorMapper, false, triggers, actionChain))
             .register(new SimulcastConnectSub(this, messages, apiClient, apiErrorMapper, false))
             .register(new SimulcastDisconnectSub(this, messages, apiClient, apiErrorMapper, false))
             .register(new StartSub(messages, apiClient, apiErrorMapper, false))
@@ -162,7 +162,7 @@ public final class minecraft extends JavaPlugin {
             .register(new DebugSub(this, messages))
             .register(new StartSub(messages, apiClient, apiErrorMapper, true))
             .register(new StopSub(messages, apiClient, apiErrorMapper, true))
-            .register(new ConnectSub(this, messages, apiClient, apiErrorMapper, true))
+            .register(new ConnectSub(this, messages, apiClient, apiErrorMapper, true, triggers, actionChain))
             .register(new SimulcastConnectSub(this, messages, apiClient, apiErrorMapper, true))
             .register(new SimulcastDisconnectSub(this, messages, apiClient, apiErrorMapper, true))
             .register(new ConnectionDeleteSub(this, messages, apiClient, apiErrorMapper))

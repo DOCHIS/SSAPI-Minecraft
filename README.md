@@ -135,6 +135,44 @@ SSAPI 서버 (숲/치지직 데이터를 같은 형식으로 정리)
 
 한 트리거에는 여러 액션을 넣을 수 있습니다. 예를 들어 “5,000원 이상 후원”에 아이템 지급과 몹 소환을 동시에 실행할 수 있습니다.
 
+### 기존 Skript 명령어로 넘기기
+
+v1처럼 기존 Skript가 보상 분기를 이미 처리하고 있다면, `triggers.yml` 에서 모든 후원을 하나의 `command` 액션으로 넘기면 됩니다.
+
+```yaml
+donation:
+  - id: legacy_skript_donation
+    enabled: true
+    match: { op: any }
+    priority: 1000
+    stop_on_match: true
+    actions:
+      - type: command
+        lines:
+          - "donation {player} {cnt} {donator_name}"
+```
+
+이렇게 하면 SSAPI 플러그인은 후원 데이터를 전달만 하고, `33`, `330`, `3330` 같은 세부 코드는 Skript의 `/donation` 명령어가 계속 판단합니다.
+
+### 연동 직후 닉네임 설정
+
+`connect:` 트리거는 `/API 연동` 이 성공했을 때 1회 실행됩니다. 숲/치지직 공개 채널 정보에서 채널 닉네임을 가져와 `{streamer_nickname}` 으로 넣고, 명령어에 안전하게 쓰기 좋게 정리한 값은 `{nickname}` 또는 `{streamer_nickname_safe}` 로 제공합니다.
+
+```yaml
+connect:
+  - id: nickname_auto
+    enabled: true
+    match: { op: any }
+    priority: 100
+    stop_on_match: true
+    actions:
+      - type: command
+        lines:
+          - "nick {nickname} {player}"
+```
+
+연동/해제 REST 호출은 서버 메인 스레드를 막지 않도록 비동기로 처리하고, 실제 마인크래프트 명령어 실행만 서버 스레드에서 수행합니다.
+
 ## 🎯 미션 기능
 
 도전미션(혼자 진행)·대결미션(스트리머 두 명 vs)·참가미션(다른 사람 미션에 합류)을 모두 지원.

@@ -1,5 +1,7 @@
 package kr.ssapi.commands.subcommands;
 
+import kr.ssapi.actions.ActionChain;
+import kr.ssapi.actions.ActionContext;
 import kr.ssapi.commands.SubCommand;
 import kr.ssapi.model.ApiConnection;
 import kr.ssapi.services.ApiClient;
@@ -9,18 +11,28 @@ import kr.ssapi.services.api.ApiResponse;
 import kr.ssapi.services.api.ErrorReason;
 import kr.ssapi.storage.StorageDriver;
 import kr.ssapi.storage.StorageManager;
+import kr.ssapi.triggers.Trigger;
+import kr.ssapi.triggers.TriggerMatcher;
+import kr.ssapi.triggers.TriggerRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
@@ -38,14 +50,19 @@ public class ConnectSub implements SubCommand {
     private final ApiClient apiClient;
     private final ApiErrorMapper errorMapper;
     private final boolean adminMode;
+    private final TriggerRegistry triggerRegistry;
+    private final ActionChain actionChain;
 
     public ConnectSub(JavaPlugin plugin, MessageService messages,
-                      ApiClient apiClient, ApiErrorMapper errorMapper, boolean adminMode) {
+                      ApiClient apiClient, ApiErrorMapper errorMapper, boolean adminMode,
+                      TriggerRegistry triggerRegistry, ActionChain actionChain) {
         this.plugin = plugin;
         this.messages = messages;
         this.apiClient = apiClient;
         this.errorMapper = errorMapper;
         this.adminMode = adminMode;
+        this.triggerRegistry = triggerRegistry;
+        this.actionChain = actionChain;
     }
 
     @Override public String name() { return "연동"; }
@@ -99,10 +116,19 @@ public class ConnectSub implements SubCommand {
             return ExecutionResult.SUCCESS;
         }
 
-        // PRIMARY가 이미 있으면 같은 아이디는 성공 처리, 다른 아이디는 기존 원격 연동 해제 후 교체한다.
+        String targetUuid = target.getUniqueId().toString();
+        String targetName = target.getName();
+        boolean notifyAdmin = sender != target;
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () ->
+            executeConnect(sender, targetUuid, targetName, platform, channelId, notifyAdmin));
+        return ExecutionResult.SUCCESS;
+    }
+
+    // PRIMARY가 이미 있으면 같은 아이디는 성공 처리, 다른 아이디는 기존 원격 연동 해제 후 교체한다.
+    private void executeConnect(CommandSender sender, String targetUuid, String targetName,
+                                ApiConnection.Platform platform, String channelId, boolean notifyAdmin) {
         StorageDriver storage = StorageManager.getDriver();
         try {
-            String targetUuid = target.getUniqueId().toString();
             Optional<ApiConnection> requestedOwner =
                 storage.getConnectionByStreamerIdAndPlatform(channelId, platform);
 
@@ -113,8 +139,10 @@ public class ConnectSub implements SubCommand {
                 if (existingConnection.getPlatform() == platform
                     && existingConnection.getStreamerId() != null
                     && existingConnection.getStreamerId().equalsIgnoreCase(channelId)) {
-                    messages.send(sender, "api.connect.error.already_connected_same_id");
-                    return ExecutionResult.SUCCESS;
+                    ApiConnection refreshed = refreshStreamerName(existingConnection, channelId);
+                    storage.saveConnection(refreshed);
+                    finishConnect(sender, targetUuid, targetName, refreshed, notifyAdmin, true);
+                    return;
                 }
 
                 ApiResponse<JSONObject> deleteResponse = deleteRemote(existingConnection);
@@ -137,20 +165,21 @@ public class ConnectSub implements SubCommand {
             boolean alreadyRegistered = isAlreadyRegistered(response);
             if (!response.isSuccess() && !alreadyRegistered) {
                 String reason = errorMapper.resolveReason(response);
-                messages.send(sender, "api.connect_fail", "message", reason);
-                return ExecutionResult.SUCCESS;
+                sendSync(sender, "api.connect_fail", "message", reason);
+                return;
             }
             if (alreadyRegistered) {
                 plugin.getLogger().info("API가 이미 등록된 스트리머로 응답해 로컬 연동을 성공 상태로 동기화합니다: "
-                    + platform.name() + "/" + channelId + " -> " + target.getName());
+                    + platform.name() + "/" + channelId + " -> " + targetName);
             }
 
+            String streamerName = resolveStreamerNickname(platform, channelId, channelId);
             ApiConnection conn = new ApiConnection(
                 targetUuid,
                 platform,
                 channelId,
-                target.getName(),
-                target.getName(),
+                streamerName,
+                targetName,
                 LocalDateTime.now(),
                 ApiConnection.ConnectionType.PRIMARY,
                 existing.map(ApiConnection::isEnabled).orElse(true)
@@ -159,16 +188,11 @@ public class ConnectSub implements SubCommand {
                 .filter(owner -> !owner.getUuid().equalsIgnoreCase(targetUuid))
                 .ifPresent(storage::deleteConnection);
             storage.saveConnection(conn);
-
-            messages.send(target, "api.connect_success");
-            if (sender != target) {
-                messages.send(sender, "admin.connect.success", "player", target.getName());
-            }
+            finishConnect(sender, targetUuid, targetName, conn, notifyAdmin, false);
         } catch (Exception e) {
             plugin.getLogger().warning("ConnectSub 실패: " + e.getMessage());
-            messages.send(sender, "api.connect_fail", "message", e.getMessage());
+            sendSync(sender, "api.connect_fail", "message", e.getMessage());
         }
-        return ExecutionResult.SUCCESS;
     }
 
     private ApiResponse<JSONObject> deleteRemote(ApiConnection connection) {
@@ -192,6 +216,141 @@ public class ConnectSub implements SubCommand {
         return response != null
             && response.errorCode != null
             && "STREAMER_ALREADY_REGISTERED".equalsIgnoreCase(response.errorCode);
+    }
+
+    private void finishConnect(CommandSender sender, String targetUuid, String targetName,
+                               ApiConnection connection, boolean notifyAdmin, boolean alreadySameId) {
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Player onlineTarget = playerByUuid(targetUuid);
+            if (onlineTarget != null) {
+                runConnectTriggers(onlineTarget, connection);
+            }
+
+            if (alreadySameId) {
+                messages.send(sender, "api.connect.error.already_connected_same_id");
+                return;
+            }
+
+            if (onlineTarget != null) {
+                messages.send(onlineTarget, "api.connect_success");
+            } else {
+                messages.send(sender, "api.connect_success");
+            }
+            if (notifyAdmin) {
+                messages.send(sender, "admin.connect.success", "player", targetName);
+            }
+        });
+    }
+
+    private void sendSync(CommandSender sender, String key, String... replacements) {
+        Bukkit.getScheduler().runTask(plugin, () -> messages.send(sender, key, replacements));
+    }
+
+    private Player playerByUuid(String uuid) {
+        try { return Bukkit.getPlayer(UUID.fromString(uuid)); }
+        catch (IllegalArgumentException e) { return null; }
+    }
+
+    private ApiConnection refreshStreamerName(ApiConnection connection, String channelId) {
+        String streamerName = resolveStreamerNickname(connection.getPlatform(), channelId, connection.getStreamerName());
+        if (streamerName.equals(connection.getStreamerName())) return connection;
+        return new ApiConnection(
+            connection.getUuid(),
+            connection.getPlatform(),
+            connection.getStreamerId(),
+            streamerName,
+            connection.getName(),
+            connection.getCreatedAt(),
+            connection.getConnectionType(),
+            connection.isEnabled()
+        );
+    }
+
+    private void runConnectTriggers(Player target, ApiConnection connection) {
+        if (triggerRegistry == null || actionChain == null || target == null || connection == null) return;
+        try {
+            ActionContext ctx = new ActionContext(target)
+                .put("player", target.getName())
+                .put("uuid", target.getUniqueId().toString())
+                .put("streamer_id", connection.getStreamerId())
+                .put("streamer_nickname", connection.getStreamerName())
+                .put("streamer_nickname_safe", sanitizeNickname(connection.getStreamerName(), connection.getStreamerId()))
+                .put("nickname", sanitizeNickname(connection.getStreamerName(), connection.getStreamerId()))
+                .put("streamer_profile_url", profileUrl(connection.getPlatform(), connection.getStreamerId()))
+                .put("platform", connection.getPlatform().toApiString())
+                .put("platform_name", connection.getPlatform().name())
+                .put("timestamp", LocalDateTime.now().toString());
+            for (Trigger t : TriggerMatcher.match(0, triggerRegistry.get(TriggerRegistry.Scope.CONNECT))) {
+                actionChain.execute(t.actions, ctx);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("connect 트리거 실행 실패: " + e.getMessage());
+        }
+    }
+
+    private String resolveStreamerNickname(ApiConnection.Platform platform, String channelId, String fallback) {
+        try {
+            String value = platform == ApiConnection.Platform.숲
+                ? fetchSoopNickname(channelId)
+                : fetchChzzkNickname(channelId);
+            if (value != null && !value.trim().isEmpty()) return value.trim();
+        } catch (Exception e) {
+            plugin.getLogger().warning("스트리머 채널 닉네임 조회 실패: "
+                + platform.name() + "/" + channelId + " - " + e.getMessage());
+        }
+        if (fallback != null && !fallback.trim().isEmpty()) return fallback.trim();
+        return channelId;
+    }
+
+    private String fetchSoopNickname(String channelId) throws Exception {
+        JSONObject json = getJson("https://chapi.sooplive.co.kr/api/" + channelId + "/station/");
+        JSONObject station = json.optJSONObject("station");
+        return station == null ? "" : station.optString("user_nick", "");
+    }
+
+    private String fetchChzzkNickname(String channelId) throws Exception {
+        JSONObject json = getJson("https://api.chzzk.naver.com/service/v1/channels/" + channelId);
+        JSONObject content = json.optJSONObject("content");
+        return content == null ? "" : content.optString("channelName", "");
+    }
+
+    private JSONObject getJson(String url) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URI(url).toURL().openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(5_000);
+        conn.setReadTimeout(8_000);
+        conn.setRequestProperty("Accept", "application/json");
+        conn.setRequestProperty("User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36");
+        int status = conn.getResponseCode();
+        InputStream stream = status >= 200 && status < 400 ? conn.getInputStream() : conn.getErrorStream();
+        String body = readAll(stream);
+        if (status < 200 || status >= 400) {
+            throw new IllegalStateException("channel API http " + status);
+        }
+        return new JSONObject(body == null || body.isEmpty() ? "{}" : body);
+    }
+
+    private String readAll(InputStream stream) throws Exception {
+        if (stream == null) return "";
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) sb.append(line);
+            return sb.toString();
+        }
+    }
+
+    private String sanitizeNickname(String nickname, String fallback) {
+        String cleaned = nickname == null ? "" : nickname.replaceAll("[^a-zA-Z0-9가-힣_-]", "");
+        if (!cleaned.isEmpty()) return cleaned;
+        return fallback == null ? "" : fallback;
+    }
+
+    private String profileUrl(ApiConnection.Platform platform, String streamerId) {
+        if (platform == ApiConnection.Platform.숲) return "https://ch.sooplive.co.kr/" + streamerId;
+        if (platform == ApiConnection.Platform.치지직) return "https://chzzk.naver.com/" + streamerId;
+        return "";
     }
 
     @Override
