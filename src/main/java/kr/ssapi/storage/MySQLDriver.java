@@ -69,6 +69,7 @@ public class MySQLDriver implements StorageDriver {
             " `streamer_id` VARCHAR(100) NULL," +
             " `streamer_name` VARCHAR(100) NULL," +
             " `name` VARCHAR(16) NULL," +
+            " `enabled` TINYINT(1) NOT NULL DEFAULT 1," +
             " `created_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP," +
             " PRIMARY KEY (`uuid`, `connection_type`)," +
             " INDEX `platform` (`platform`)," +
@@ -78,6 +79,14 @@ public class MySQLDriver implements StorageDriver {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.execute();
+        }
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                 "ALTER TABLE `api_connection` ADD COLUMN `enabled` TINYINT(1) NOT NULL DEFAULT 1 AFTER `name`")) {
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            if (!"42S21".equals(e.getSQLState()) && e.getErrorCode() != 1060) throw e;
         }
     }
 
@@ -119,10 +128,10 @@ public class MySQLDriver implements StorageDriver {
     @Override
     public void saveConnection(ApiConnection connection) {
         String sql =
-            "INSERT INTO api_connection (uuid, connection_type, platform, streamer_id, streamer_name, name) " +
-            "VALUES (?, ?, ?, ?, ?, ?) " +
+            "INSERT INTO api_connection (uuid, connection_type, platform, streamer_id, streamer_name, name, enabled) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?) " +
             "ON DUPLICATE KEY UPDATE platform=VALUES(platform), streamer_id=VALUES(streamer_id), " +
-            "streamer_name=VALUES(streamer_name), name=VALUES(name)";
+            "streamer_name=VALUES(streamer_name), name=VALUES(name), enabled=VALUES(enabled)";
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, connection.getUuid());
@@ -131,6 +140,7 @@ public class MySQLDriver implements StorageDriver {
             stmt.setString(4, connection.getStreamerId());
             stmt.setString(5, connection.getStreamerName());
             stmt.setString(6, connection.getName());
+            stmt.setBoolean(7, connection.isEnabled());
             stmt.executeUpdate();
         } catch (SQLException e) {
             java.util.logging.Logger.getLogger("SSApi").log(java.util.logging.Level.WARNING, "MySQLDriver saveConnection 실패", e);
@@ -229,6 +239,19 @@ public class MySQLDriver implements StorageDriver {
     }
 
     @Override
+    public void setEnabled(String uuid, boolean enabled) {
+        String sql = "UPDATE api_connection SET enabled = ? WHERE uuid = ?";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setBoolean(1, enabled);
+            stmt.setString(2, uuid);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            java.util.logging.Logger.getLogger("SSApi").log(java.util.logging.Level.WARNING, "MySQLDriver setEnabled 실패", e);
+        }
+    }
+
+    @Override
     public void saveApiLog(ApiLog log) {
         String sql =
             "INSERT INTO api_log (server_ip, server_name, streamer_id, username, cnt, type, property, isRun, player_name, player_uuid, player_world) " +
@@ -266,7 +289,8 @@ public class MySQLDriver implements StorageDriver {
             rs.getString("streamer_name"),
             rs.getString("name"),
             createdAt,
-            type
+            type,
+            rs.getBoolean("enabled")
         );
     }
 }

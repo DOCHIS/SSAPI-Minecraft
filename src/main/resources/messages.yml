@@ -1,25 +1,17 @@
 # ════════════════════════════════════════════════════════════════════
 #               SSAPI 메시지 — 채팅·알림에 표시될 문구
 # ════════════════════════════════════════════════════════════════════
-#  📖 색상·서식 가이드 (MiniMessage):
+#  📖 색상과 서식은 MiniMessage 문법을 사용합니다.
 #     https://docs.advntr.dev/minimessage/format.html
 #
-#  💡 자주 쓰는 표현:
-#     <red>빨간 글씨</red>
-#     <gold>금색 글씨</gold>
-#     <click:run_command:'/API관리 도움말'>[클릭하면 명령어 실행]</click>
-#     <hover:show_text:'설명'>마우스 올리면 보임</hover>
+#  💡 원하는 문구와 스타일로 자유롭게 바꿀 수 있습니다. 아래는 예시입니다.
+#     <green>초록</green>, <red>빨강</red>, <yellow>노랑</yellow>, <gold>금색</gold>
+#     <bold>굵게</bold>, <italic>기울임</italic>, <underlined>밑줄</underlined>
+#     <click:run_command:'/API 상태'>[상태 보기]</click>
+#     <hover:show_text:'마우스 올리면 보이는 설명'>도움말</hover>
 #
-#  📌 메시지마다 사용할 수 있는 변수는 줄 옆 주석에 적혀있어요
-#
-#  🎨 컬러 컨벤션 — 문장 전체 색칠 X, 키워드만 강조
-#     기본 글자색 = 흰색 (지정 안 함)
-#     <green>  : 성공·완료 키워드
-#     <red>    : 실패·오류 키워드
-#     <yellow> : 주의·경고·임시 상태 키워드
-#     <aqua>   : 사용자 닉네임·플레이어명·후원자명·명령어
-#     <gold>   : 금액·수량 등 수치
-#     <gray>   : 부가 설명·힌트
+#  📌 <player>, <message> 같은 변수는 메시지마다 줄 옆 주석에 적혀 있습니다.
+#     변수 이름은 그대로 두고, 위치와 주변 문구는 원하는 대로 조정할 수 있습니다.
 # ════════════════════════════════════════════════════════════════════
 
 # 모든 메시지 앞에 prefix 가 자동으로 붙습니다.
@@ -81,6 +73,8 @@ api:
       chzzk_id_invalid: "치지직 채널 주소(URL)의 끝부분 ID를 그대로 복사해 주세요"
       channel_info_fail: "<yellow><platform_name></yellow> 채널 정보를 찾지 못했어요. 아이디를 확인해 주세요"  # 변수: <platform_name>
       streamer_limit_exceeded: "등록 가능한 스트리머 수를 모두 사용했어요. 서버 관리자에게 슬롯 정리를 요청해 주세요"
+      already_connected: "이미 이 마크 계정에 후원 연동이 있어요. <aqua>/API 상태</aqua> 로 확인해 주세요"
+      already_connected_same_id: "이미 <green>성공적으로 연동된 아이디</green>예요. <aqua>/API 상태</aqua> 로 확인해 주세요"
       streamer_already_registered: "이미 다른 마크 계정에 연동된 채널이에요. 기존 연동을 먼저 해제해 주세요"
       streamer_uppercase_forbidden: "아이디는 영문 소문자만 입력해 주세요"
       streamer_special_chars: "아이디에 특수문자가 들어있어요. 영문 소문자·숫자·-_ 만 사용해 주세요"
@@ -109,6 +103,11 @@ admin:
   connect:
     success: "<aqua><player></aqua> 님의 후원 연동을 <green>완료</green>했어요."
     fail: "<aqua><player></aqua> 님의 후원 연동에 <red>실패</red>했어요."
+  connection_delete:
+    success: "<yellow><target></yellow> 연동 정보 <green><count>개</green>를 삭제했어요."
+    partial_fail: "<yellow><target></yellow> 연동 정보 <green><success>개</green> 삭제, <red><failed>개</red> 실패: <yellow><reason></yellow>"
+    fail: "<yellow><target></yellow> 연동 정보 삭제 <red>실패</red>: <yellow><reason></yellow>"
+    not_found: "<yellow><target></yellow> 와 연결된 연동 정보를 찾지 못했어요."
   disconnect:
     success: "<aqua><player></aqua> 님의 후원 연동을 <green>해제</green>했어요."
     fail: "<aqua><player></aqua> 님의 연동 해제에 <red>실패</red>했어요."
@@ -346,7 +345,7 @@ status:
   connections_count: "<yellow>등록 connection: <reset><count>개"                  # 변수: <count>
   storage_lookup_failed: "<red>storage 조회 실패: <error>"                         # 변수: <error>
   my_header: "<gold>=== 내 연동 ==="
-  my_entry: "<yellow>[<type>]<reset> <platform> · <streamer_id>"                  # 변수: <type>, <platform>, <streamer_id>
+  my_entry: "<yellow>[<type>]<reset> <platform> · <streamer_id> · 수신 <enabled>" # 변수: <type>, <platform>, <streamer_id>, <enabled>
   my_lookup_failed: "<red>상태 조회 실패: <error>"                                 # 변수: <error>
 
 

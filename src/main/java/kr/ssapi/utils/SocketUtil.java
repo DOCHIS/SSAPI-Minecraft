@@ -5,6 +5,7 @@ import io.socket.client.Socket;
 import kr.ssapi.config.MissionSettings;
 import kr.ssapi.events.DonationEvent;
 import kr.ssapi.events.MissionEvent;
+import okhttp3.OkHttpClient;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONObject;
@@ -25,12 +26,15 @@ import java.util.logging.Level;
 public class SocketUtil {
     private static JavaPlugin plugin;
     private static Socket socket;
+    private static OkHttpClient httpClient;
     private static volatile boolean loginResponseReceived = false;
+    private static volatile boolean shuttingDown = false;
     private static ScheduledExecutorService executorService;
 
     // 플러그인 인스턴스와 단일 스레드 스케줄러를 초기화
     public static void init(JavaPlugin plugin) {
         SocketUtil.plugin = plugin;
+        shuttingDown = false;
         if (executorService == null || executorService.isShutdown()) {
             executorService = Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r, "ssapi-socket-scheduler");
@@ -49,26 +53,32 @@ public class SocketUtil {
         try {
             IO.Options opts = new IO.Options();
             opts.transports = new String[]{"websocket"};
+            opts.forceNew = true;
             opts.timeout = cfg.getInt("api.socket.timeout_ms", 3000);
             opts.reconnection = cfg.getBoolean("api.socket.reconnect", true);
             opts.reconnectionAttempts = cfg.getInt("api.socket.reconnect_max_attempts", 10000);
             opts.reconnectionDelay = cfg.getInt("api.socket.reconnect_delay_ms", 1000);
             opts.reconnectionDelayMax = cfg.getInt("api.socket.reconnect_max_delay_ms", 30000);
+            opts.callFactory = httpClient();
+            opts.webSocketFactory = httpClient();
 
             socket = IO.socket(cfg.getString("api.servers.socket", "https://socket.ssapi.kr"), opts);
 
             socket.on(Socket.EVENT_CONNECT, args -> {
+                if (shuttingDown) return;
                 plugin.getLogger().info("Socket connected");
                 loginResponseReceived = false;
                 sendLoginRequest();
             });
 
             socket.on(Socket.EVENT_DISCONNECT, args -> {
+                if (shuttingDown) return;
                 plugin.getLogger().info("Socket disconnected");
                 loginResponseReceived = false;
             });
 
             socket.on("login", args -> {
+                if (shuttingDown) return;
                 plugin.getLogger().info("Login response received");
                 loginResponseReceived = true;
                 handleRoomInfo(args);
@@ -94,13 +104,24 @@ public class SocketUtil {
         }
     }
 
+    private static OkHttpClient httpClient() {
+        if (httpClient == null) {
+            httpClient = new OkHttpClient.Builder()
+                .readTimeout(1, TimeUnit.MINUTES)
+                .build();
+        }
+        return httpClient;
+    }
+
     // Snappy 압축 바이트 배열을 JSONObject 로 파싱 후 메인 스레드에서 handler 실행
     private static void handleCompressed(Object[] args, String eventType, java.util.function.Consumer<JSONObject> handler) {
+        if (shuttingDown) return;
         try {
             byte[] compressed = (byte[]) args[0];
             JSONObject data = parseCompressedData(compressed);
             if (data != null) {
                 Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (shuttingDown) return;
                     try { handler.accept(data); }
                     catch (Exception e) { plugin.getLogger().log(Level.WARNING, eventType + " 핸들러 실패", e); }
                 });
@@ -111,6 +132,7 @@ public class SocketUtil {
     }
 
     private static void handleRoomInfo(Object[] args) {
+        if (shuttingDown) return;
         if (args == null || args.length == 0) return;
         try {
             JSONObject roomInfo;
@@ -129,12 +151,13 @@ public class SocketUtil {
 
     // API 키로 login 이벤트 전송 후 타임아웃 내 응답 없으면 재전송
     private static void sendLoginRequest() {
+        if (shuttingDown || socket == null || plugin == null || !plugin.isEnabled()) return;
         org.bukkit.configuration.file.FileConfiguration cfg = plugin.getConfig();
         socket.emit("login", cfg.getString("api.key", ""));
         socket.emit("setReceiver", "login,donation,status,mission");
 
         executorService.schedule(() -> {
-            if (!loginResponseReceived) {
+            if (!shuttingDown && !loginResponseReceived) {
                 plugin.getLogger().info("Login response timeout, retrying...");
                 sendLoginRequest();
             }
@@ -143,9 +166,17 @@ public class SocketUtil {
 
     // logout 이벤트를 전송하고 소켓을 명시적으로 끊음
     public static void disconnect() {
-        if (socket != null && socket.connected()) {
-            socket.emit("logout");
-            socket.disconnect();
+        shuttingDown = true;
+        if (socket != null) {
+            try { socket.io().reconnection(false); } catch (Exception ignored) {}
+            try {
+                if (socket.connected()) socket.emit("logout");
+            } catch (Exception ignored) {}
+            try { socket.off(); } catch (Exception ignored) {}
+            try { socket.offAnyIncoming(); } catch (Exception ignored) {}
+            try { socket.offAnyOutgoing(); } catch (Exception ignored) {}
+            try { socket.disconnect(); } catch (Exception ignored) {}
+            socket = null;
         }
     }
 
@@ -157,6 +188,12 @@ public class SocketUtil {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+        if (httpClient != null) {
+            httpClient.dispatcher().cancelAll();
+            httpClient.dispatcher().executorService().shutdownNow();
+            httpClient.connectionPool().evictAll();
+            httpClient = null;
         }
     }
 

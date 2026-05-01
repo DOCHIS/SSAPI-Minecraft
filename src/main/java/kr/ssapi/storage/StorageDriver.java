@@ -17,6 +17,7 @@ public interface StorageDriver {
 
     void saveConnection(ApiConnection connection);
     void deleteConnection(ApiConnection connection);
+    void setEnabled(String uuid, boolean enabled);
 
     Optional<ApiConnection> getConnectionByUuidAndType(String uuid, ApiConnection.ConnectionType type);
     List<ApiConnection> getConnectionsByUuid(String uuid);

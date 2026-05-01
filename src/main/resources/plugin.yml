@@ -32,6 +32,7 @@ commands:
       /<command> 연동 <플레이어> <숲|치지직> <아이디>  - 플레이어 메인 연동
       /<command> 동시송출연동 <플레이어> <숲|치지직> <아이디> - 플레이어 동시송출 연동
       /<command> 동시송출해제 <플레이어>             - 플레이어 동시송출 해제
+      /<command> 연동정보삭제 <스트리머아이디|마크아이디> - 연동 정보 강제 삭제
       /<command> 킷 <목록|편집|지급>                 - 킷 관리 (GUI 권장)
       /<command> 트리거 <목록|토글>                  - 트리거 관리 (GUI 권장)
       /<command> 미션                                - 미션 설정 확인 (대시보드 링크)
@@ -65,6 +66,7 @@ permissions:
       ssapi.command.start: true
       ssapi.command.stop: true
       ssapi.command.status: true
+      ssapi.command.connection_delete: true
       ssapi.command.reload: true
       ssapi.command.save: true
       ssapi.command.test: true
@@ -88,6 +90,9 @@ permissions:
     default: op
   ssapi.command.status:
     description: 시스템 상태 조회
+    default: op
+  ssapi.command.connection_delete:
+    description: 스트리머/마크 아이디 기준 연동 정보 강제 삭제
     default: op
   ssapi.command.reload:
     description: 설정 리로드

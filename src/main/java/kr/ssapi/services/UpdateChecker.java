@@ -54,9 +54,9 @@ public class UpdateChecker implements Listener {
                         while ((line = r.readLine()) != null) sb.append(line);
                     }
                     org.json.JSONObject json = new org.json.JSONObject(sb.toString());
-                    String tag = json.optString("tag_name", "").replace("v", "");
+                    String tag = normalizeVersion(json.optString("tag_name", ""));
                     String url = json.optString("html_url", "");
-                    if (!tag.isEmpty() && !tag.equals(plugin.getDescription().getVersion())) {
+                    if (!tag.isEmpty() && isNewerVersion(tag, plugin.getDescription().getVersion())) {
                         latestVersion = tag;
                         releaseUrl = url;
                         plugin.getLogger().info("새 버전 발견: " + tag + " — " + url);
@@ -66,6 +66,42 @@ public class UpdateChecker implements Listener {
                 }
             }
         }.runTaskAsynchronously(plugin);
+    }
+
+    private String normalizeVersion(String version) {
+        if (version == null) return "";
+        return version.trim().replaceFirst("^[vV]", "");
+    }
+
+    private boolean isNewerVersion(String candidate, String current) {
+        int[] candidateParts = parseVersion(candidate);
+        int[] currentParts = parseVersion(normalizeVersion(current));
+        int length = Math.max(candidateParts.length, currentParts.length);
+        for (int i = 0; i < length; i++) {
+            int candidatePart = i < candidateParts.length ? candidateParts[i] : 0;
+            int currentPart = i < currentParts.length ? currentParts[i] : 0;
+            if (candidatePart > currentPart) return true;
+            if (candidatePart < currentPart) return false;
+        }
+        return false;
+    }
+
+    private int[] parseVersion(String version) {
+        if (version == null || version.isBlank()) return new int[]{0};
+        String[] tokens = version.split("[^0-9]+");
+        java.util.List<Integer> parts = new java.util.ArrayList<>();
+        for (String token : tokens) {
+            if (token.isEmpty()) continue;
+            try {
+                parts.add(Integer.parseInt(token));
+            } catch (NumberFormatException ignored) {
+                parts.add(0);
+            }
+        }
+        if (parts.isEmpty()) return new int[]{0};
+        int[] out = new int[parts.size()];
+        for (int i = 0; i < parts.size(); i++) out[i] = parts.get(i);
+        return out;
     }
 
     // OP 플레이어 입장 시 새 버전 알림 메시지 전송

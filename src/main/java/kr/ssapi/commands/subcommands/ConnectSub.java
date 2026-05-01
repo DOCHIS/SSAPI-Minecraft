@@ -6,6 +6,7 @@ import kr.ssapi.services.ApiClient;
 import kr.ssapi.services.ApiErrorMapper;
 import kr.ssapi.services.MessageService;
 import kr.ssapi.services.api.ApiResponse;
+import kr.ssapi.services.api.ErrorReason;
 import kr.ssapi.storage.StorageDriver;
 import kr.ssapi.storage.StorageManager;
 import org.bukkit.Bukkit;
@@ -98,36 +99,65 @@ public class ConnectSub implements SubCommand {
             return ExecutionResult.SUCCESS;
         }
 
-        // 이미 PRIMARY 연동이 있는지 확인 후 API 호출 → 스토리지 저장
+        // PRIMARY가 이미 있으면 같은 아이디는 성공 처리, 다른 아이디는 기존 원격 연동 해제 후 교체한다.
         StorageDriver storage = StorageManager.getDriver();
         try {
+            String targetUuid = target.getUniqueId().toString();
+            Optional<ApiConnection> requestedOwner =
+                storage.getConnectionByStreamerIdAndPlatform(channelId, platform);
+
             Optional<ApiConnection> existing = storage.getConnectionByUuidAndType(
-                target.getUniqueId().toString(), ApiConnection.ConnectionType.PRIMARY);
+                targetUuid, ApiConnection.ConnectionType.PRIMARY);
             if (existing.isPresent()) {
-                messages.send(sender, "api.connect.error.streamer_already_registered");
-                return ExecutionResult.SUCCESS;
+                ApiConnection existingConnection = existing.get();
+                if (existingConnection.getPlatform() == platform
+                    && existingConnection.getStreamerId() != null
+                    && existingConnection.getStreamerId().equalsIgnoreCase(channelId)) {
+                    messages.send(sender, "api.connect.error.already_connected_same_id");
+                    return ExecutionResult.SUCCESS;
+                }
+
+                ApiResponse<JSONObject> deleteResponse = deleteRemote(existingConnection);
+                if (!deleteResponse.isSuccess()) {
+                    String reason = errorMapper.resolveReason(deleteResponse);
+                    plugin.getLogger().warning("기존 PRIMARY 원격 연동 해제 실패 후 재연동 계속 진행: "
+                        + existingConnection.getPlatform().name() + "/" + existingConnection.getStreamerId()
+                        + " - " + reason);
+                } else {
+                    plugin.getLogger().info("기존 PRIMARY 원격 연동 해제 완료: "
+                        + existingConnection.getPlatform().name() + "/" + existingConnection.getStreamerId());
+                }
             }
 
             JSONObject body = new JSONObject();
             body.put("platform", platform.toApiString());
             body.put("user", channelId);
-            body.put("minecraft_uuid", target.getUniqueId().toString());
-            ApiResponse<JSONObject> response = apiClient.put("/plugin/minecraft/user", body);
-            if (!response.isSuccess()) {
+            body.put("minecraft_uuid", targetUuid);
+            ApiResponse<JSONObject> response = registerRemote(body, platform, channelId);
+            boolean alreadyRegistered = isAlreadyRegistered(response);
+            if (!response.isSuccess() && !alreadyRegistered) {
                 String reason = errorMapper.resolveReason(response);
                 messages.send(sender, "api.connect_fail", "message", reason);
                 return ExecutionResult.SUCCESS;
             }
+            if (alreadyRegistered) {
+                plugin.getLogger().info("API가 이미 등록된 스트리머로 응답해 로컬 연동을 성공 상태로 동기화합니다: "
+                    + platform.name() + "/" + channelId + " -> " + target.getName());
+            }
 
             ApiConnection conn = new ApiConnection(
-                target.getUniqueId().toString(),
+                targetUuid,
                 platform,
                 channelId,
                 target.getName(),
                 target.getName(),
                 LocalDateTime.now(),
-                ApiConnection.ConnectionType.PRIMARY
+                ApiConnection.ConnectionType.PRIMARY,
+                existing.map(ApiConnection::isEnabled).orElse(true)
             );
+            requestedOwner
+                .filter(owner -> !owner.getUuid().equalsIgnoreCase(targetUuid))
+                .ifPresent(storage::deleteConnection);
             storage.saveConnection(conn);
 
             messages.send(target, "api.connect_success");
@@ -141,14 +171,39 @@ public class ConnectSub implements SubCommand {
         return ExecutionResult.SUCCESS;
     }
 
+    private ApiResponse<JSONObject> deleteRemote(ApiConnection connection) {
+        JSONObject body = new JSONObject();
+        body.put("platform", connection.getPlatform().toApiString());
+        body.put("user", connection.getStreamerId());
+        return apiClient.delete("/room/user", body);
+    }
+
+    private ApiResponse<JSONObject> registerRemote(JSONObject body, ApiConnection.Platform platform, String channelId) {
+        ApiResponse<JSONObject> response = apiClient.put("/plugin/minecraft/user", body);
+        if (response.reason == ErrorReason.TIMEOUT) {
+            plugin.getLogger().warning("스트리머 등록 응답 시간이 초과되어 1회 재시도합니다: "
+                + platform.name() + "/" + channelId);
+            response = apiClient.put("/plugin/minecraft/user", body);
+        }
+        return response;
+    }
+
+    private boolean isAlreadyRegistered(ApiResponse<?> response) {
+        return response != null
+            && response.errorCode != null
+            && "STREAMER_ALREADY_REGISTERED".equalsIgnoreCase(response.errorCode);
+    }
+
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
         if (adminMode) {
             if (args.length == 1) return onlinePlayerNames(args[0]);
             if (args.length == 2) return platformOptions(args[1]);
+            if (args.length == 3) return idPlaceholder(args[1]);
             return Collections.emptyList();
         }
         if (args.length == 1) return platformOptions(args[0]);
+        if (args.length == 2) return idPlaceholder(args[0]);
         return Collections.emptyList();
     }
 
@@ -166,5 +221,15 @@ public class ConnectSub implements SubCommand {
             if (s.startsWith(prefix)) out.add(s);
         }
         return out;
+    }
+
+    private List<String> idPlaceholder(String platform) {
+        if ("숲".equals(platform) || "soop".equalsIgnoreCase(platform)) {
+            return Collections.singletonList("스트리머아이디 (마크아이디 아님!)");
+        }
+        if ("치지직".equals(platform) || "chzzk".equalsIgnoreCase(platform)) {
+            return Collections.singletonList("치지직채널ID (마크아이디 아님!)");
+        }
+        return Collections.emptyList();
     }
 }

@@ -61,8 +61,9 @@ public class StatusSub implements SubCommand {
             for (ApiConnection c : conns) {
                 String pl = c.getPlatform() == ApiConnection.Platform.숲 ? "숲" : "치지직";
                 String type = c.getConnectionType() == ApiConnection.ConnectionType.PRIMARY ? "메인" : "동시송출";
+                String enabled = c.isEnabled() ? "켜짐" : "중지";
                 messages.send(sender, "status.my_entry",
-                    "type", type, "platform", pl, "streamer_id", c.getStreamerId());
+                    "type", type, "platform", pl, "streamer_id", c.getStreamerId(), "enabled", enabled);
             }
         } catch (Exception e) {
             messages.send(sender, "status.my_lookup_failed", "error", e.getMessage());

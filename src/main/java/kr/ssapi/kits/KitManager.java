@@ -22,6 +22,25 @@ import java.util.logging.Level;
  * <p>GUI 편집 시 자동 저장. 동시 편집 락 (player UUID 단위, 15초 TTL).
  */
 public class KitManager {
+    private static final String HEADER = String.join("\n",
+        "════════════════════════════════════════════════════════════════════",
+        "SSAPI 킷 - 후원자에게 줄 아이템 묶음",
+        "════════════════════════════════════════════════════════════════════",
+        "편집은 게임 안에서 /API관리 -> 킷 메뉴를 사용하는 것을 권장합니다.",
+        "인벤토리에 아이템을 드래그하면 킷에 자동으로 저장됩니다.",
+        "",
+        "items 값은 마인크래프트 아이템 데이터를 직렬화한 내용입니다.",
+        "손으로 수정하기 어렵고, 잘못 고치면 아이템이 깨질 수 있습니다.",
+        "",
+        "킷 이름과 표시 이름은 필요하면 직접 바꿀 수 있습니다.",
+        "예시:",
+        "kits:",
+        "  starter:",
+        "    display: \"스타터 킷\"",
+        "    items: {}",
+        "════════════════════════════════════════════════════════════════════"
+    );
+
     private final JavaPlugin plugin;
     private final File file;
     private final Map<String, Kit> kits = new ConcurrentHashMap<>();
@@ -38,17 +57,16 @@ public class KitManager {
     public void reload() {
         kits.clear();
         if (!file.exists()) {
-            // 빈 파일 생성
-            try {
-                file.getParentFile().mkdirs();
-                file.createNewFile();
-            } catch (IOException e) {
-                plugin.getLogger().log(Level.WARNING, "kits.yml 생성 실패", e);
-            }
+            file.getParentFile().mkdirs();
+            saveAll();
             return;
         }
         FileConfiguration cfg = YamlConfiguration.loadConfiguration(file);
         ConfigurationSection root = cfg.getConfigurationSection("kits");
+        if (root == null && file.length() == 0L) {
+            saveAll();
+            return;
+        }
         if (root == null) return;
 
         for (String name : root.getKeys(false)) {
@@ -73,6 +91,11 @@ public class KitManager {
     // 메모리의 모든 킷을 kits.yml 로 직렬화해 저장
     public synchronized void saveAll() {
         FileConfiguration cfg = new YamlConfiguration();
+        cfg.options().header(HEADER);
+        cfg.options().copyHeader(true);
+        if (kits.isEmpty()) {
+            cfg.set("kits", new HashMap<String, Object>());
+        }
         for (Map.Entry<String, Kit> e : kits.entrySet()) {
             String prefix = "kits." + e.getKey() + ".";
             cfg.set(prefix + "display", e.getValue().getDisplay());

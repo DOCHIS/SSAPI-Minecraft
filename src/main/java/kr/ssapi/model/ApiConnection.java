@@ -15,6 +15,7 @@ public class ApiConnection {
     private String name;
     private LocalDateTime createdAt;
     private ConnectionType connectionType;
+    private boolean enabled;
 
     public enum Platform {
         치지직, 숲;
@@ -42,6 +43,10 @@ public class ApiConnection {
     }
 
     public ApiConnection(String uuid, Platform platform, String streamerId, String streamerName, String name, LocalDateTime createdAt, ConnectionType connectionType) {
+        this(uuid, platform, streamerId, streamerName, name, createdAt, connectionType, true);
+    }
+
+    public ApiConnection(String uuid, Platform platform, String streamerId, String streamerName, String name, LocalDateTime createdAt, ConnectionType connectionType, boolean enabled) {
         if (connectionType == null) throw new IllegalArgumentException("connectionType required");
         this.uuid = uuid;
         this.platform = platform;
@@ -50,6 +55,7 @@ public class ApiConnection {
         this.name = name;
         this.createdAt = createdAt;
         this.connectionType = connectionType;
+        this.enabled = enabled;
     }
 
     public String getUuid() { return uuid; }
@@ -72,4 +78,7 @@ public class ApiConnection {
 
     public ConnectionType getConnectionType() { return connectionType; }
     public void setConnectionType(ConnectionType connectionType) { this.connectionType = connectionType; }
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 }

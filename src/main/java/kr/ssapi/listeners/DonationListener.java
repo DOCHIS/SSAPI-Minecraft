@@ -5,6 +5,7 @@ import kr.ssapi.actions.ActionContext;
 import kr.ssapi.events.DonationEvent;
 import kr.ssapi.model.ApiConnection;
 import kr.ssapi.model.ApiLog;
+import kr.ssapi.services.FileLogService;
 import kr.ssapi.services.MessageService;
 import kr.ssapi.storage.StorageManager;
 import kr.ssapi.triggers.Trigger;
@@ -38,12 +39,15 @@ public class DonationListener implements Listener {
     private final TriggerRegistry registry;
     private final ActionChain actionChain;
     private final MessageService messages;
+    private final FileLogService fileLogs;
 
-    public DonationListener(JavaPlugin plugin, TriggerRegistry registry, ActionChain actionChain, MessageService messages) {
+    public DonationListener(JavaPlugin plugin, TriggerRegistry registry, ActionChain actionChain,
+                            MessageService messages, FileLogService fileLogs) {
         this.plugin = plugin;
         this.registry = registry;
         this.actionChain = actionChain;
         this.messages = messages;
+        this.fileLogs = fileLogs;
     }
 
     @EventHandler
@@ -59,6 +63,10 @@ public class DonationListener implements Listener {
 
         Player player = resolveTestPlayer(data).orElseGet(() -> resolvePlayer(streamerId, platform));
         boolean executeWhenOffline = plugin.getConfig().getBoolean("reward.execute_when_offline", false);
+        if (!data.optBoolean("_test", false) && !isRewardEnabled(streamerId, platform)) {
+            if (fileLogs != null) fileLogs.logDonation(data, null, "skipped", "disabled");
+            return;
+        }
 
         try {
             ApiConnection connection = streamerId.isEmpty() ? null
@@ -78,10 +86,15 @@ public class DonationListener implements Listener {
                 player == null ? null : player.getWorld().getName(),
                 LocalDateTime.now()
             );
-            boolean saveDonation = plugin.getConfig().getBoolean("logging.save.donation", true);
             boolean saveFailure = plugin.getConfig().getBoolean("logging.save.failure", true);
-            if (saveDonation || (saveFailure && player == null)) {
+            if ("mysql".equalsIgnoreCase(plugin.getConfig().getString("storage.type", "yml"))
+                && (plugin.getConfig().getBoolean("logging.save.donation", true) || (saveFailure && player == null))) {
                 StorageManager.getDriver().saveApiLog(log);
+            }
+            if (fileLogs != null) {
+                String outcome = player == null && !executeWhenOffline ? "skipped" : "received";
+                String reason = player == null && !executeWhenOffline ? "player_offline" : "";
+                fileLogs.logDonation(data, log, outcome, reason);
             }
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "DonationListener 로그 저장 실패", e);
@@ -149,6 +162,7 @@ public class DonationListener implements Listener {
             Optional<ApiConnection> conn = StorageManager.getDriver()
                 .getConnectionByStreamerIdAndPlatform(streamerId, platform);
             if (!conn.isPresent()) return null;
+            if (!conn.get().isEnabled()) return null;
             return Bukkit.getPlayer(UUID.fromString(conn.get().getUuid()));
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "DonationListener resolvePlayer 실패", e);
@@ -168,6 +182,20 @@ public class DonationListener implements Listener {
         if ("soop".equalsIgnoreCase(platformStr)) return ApiConnection.Platform.숲;
         if ("chzzk".equalsIgnoreCase(platformStr)) return ApiConnection.Platform.치지직;
         return null;
+    }
+
+    private boolean isRewardEnabled(String streamerId, String platformStr) {
+        if (streamerId == null || streamerId.isEmpty()) return true;
+        ApiConnection.Platform platform = platformEnum(platformStr);
+        if (platform == null) return true;
+        try {
+            Optional<ApiConnection> conn = StorageManager.getDriver()
+                .getConnectionByStreamerIdAndPlatform(streamerId, platform);
+            return !conn.isPresent() || conn.get().isEnabled();
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "DonationListener enabled 상태 조회 실패", e);
+            return true;
+        }
     }
 
     private String platformName(String platform) {

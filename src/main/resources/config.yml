@@ -257,12 +257,13 @@ sounds:
 # ─────────────────────────────────────────────────────────────────────
 # [7] 기록 (로그)
 # ─────────────────────────────────────────────────────────────────────
-logging:
-  enabled: true
-  save:
-    donation: true            # 후원이 들어왔을 때 기록
-    mission:  true            # 미션이 들어왔을 때 기록
-    failure:  true            # 액션 실패했을 때 기록 (문제 추적용)
+  logging:
+    enabled: true
+    save:
+      api:      true            # SSAPI REST API 호출/응답 기록
+      donation: true            # 후원이 들어왔을 때 기록
+      mission:  true            # 미션이 들어왔을 때 기록
+      failure:  true            # 액션 실패했을 때 기록 (문제 추적용)
   # 자세한 디버그 출력. 평소엔 OFF, 문제 추적 시에만 ON.
   # 게임 안에서 /API관리 디버그 on 으로 잠깐 켤 수도 있어요.
   debug: false

@@ -10,6 +10,7 @@ import kr.ssapi.listeners.DonationListener;
 import kr.ssapi.listeners.MissionListener;
 import kr.ssapi.services.ApiClient;
 import kr.ssapi.services.ApiErrorMapper;
+import kr.ssapi.services.FileLogService;
 import kr.ssapi.services.MessageService;
 import kr.ssapi.services.Metrics;
 import kr.ssapi.services.UpdateChecker;
@@ -42,6 +43,7 @@ public final class minecraft extends JavaPlugin {
     private UpdateChecker updateChecker;
     private ApiClient apiClient;
     private ApiErrorMapper apiErrorMapper;
+    private FileLogService fileLogs;
 
     @Override
     public void onEnable() {
@@ -64,11 +66,13 @@ public final class minecraft extends JavaPlugin {
 
         // 메시지 서비스
         messages = new MessageService(this);
+        fileLogs = new FileLogService(this);
 
         // API 클라이언트
         apiClient = new ApiClient(
             getConfig().getString("api.servers.api", "https://api.ssapi.kr"),
-            getConfig().getString("api.key", "")
+            getConfig().getString("api.key", ""),
+            fileLogs
         );
         apiErrorMapper = new ApiErrorMapper(messages);
 
@@ -107,10 +111,10 @@ public final class minecraft extends JavaPlugin {
         }
 
         // 리스너
-        DonationListener donationListener = new DonationListener(this, triggers, actionChain, messages);
+        DonationListener donationListener = new DonationListener(this, triggers, actionChain, messages, fileLogs);
         getServer().getPluginManager().registerEvents(donationListener, this);
         getServer().getPluginManager().registerEvents(
-            new MissionListener(this, triggers, actionChain), this);
+            new MissionListener(this, triggers, actionChain, fileLogs), this);
         getServer().getPluginManager().registerEvents(gui, this);
 
         // 운영 기능
@@ -161,6 +165,7 @@ public final class minecraft extends JavaPlugin {
             .register(new ConnectSub(this, messages, apiClient, apiErrorMapper, true))
             .register(new SimulcastConnectSub(this, messages, apiClient, apiErrorMapper, true))
             .register(new SimulcastDisconnectSub(this, messages, apiClient, apiErrorMapper, true))
+            .register(new ConnectionDeleteSub(this, messages, apiClient, apiErrorMapper))
             .register(new KitSub(gui, kits, messages))
             .register(new TriggerSub(gui, triggers, messages))
             .register(new MissionSub(messages))

@@ -20,6 +20,19 @@ import java.util.logging.Level;
  * <p>저장 위치: {@code plugins/SSApi/state/} 하위 (사용자 편집 영역과 분리).
  */
 public class StateManager {
+    private static final String TRIGGER_STATS_HEADER = String.join("\n",
+        "════════════════════════════════════════════════════════════════════",
+        "SSAPI 트리거 통계 - 자동 생성 파일",
+        "════════════════════════════════════════════════════════════════════",
+        "트리거가 몇 번 실행됐는지 저장하는 내부 상태 파일입니다.",
+        "",
+        "일반적으로 직접 수정할 필요가 없습니다.",
+        "통계를 초기화하고 싶다면 서버를 끈 뒤 counters 값을 비우거나 파일을 삭제하세요.",
+        "",
+        "키 이름의 __DOT__ 과 __COLON__ 은 YAML 저장을 위한 내부 치환 문자열입니다.",
+        "════════════════════════════════════════════════════════════════════"
+    );
+
     private final JavaPlugin plugin;
     private final KitManager kits;
     private final TriggerStats stats;
@@ -47,7 +60,12 @@ public class StateManager {
     private void saveStats() {
         File f = new File(stateDir, "trigger-stats.yml");
         FileConfiguration cfg = new YamlConfiguration();
+        cfg.options().header(TRIGGER_STATS_HEADER);
+        cfg.options().copyHeader(true);
         Map<String, Long> snap = stats.snapshot();
+        if (snap.isEmpty()) {
+            cfg.set("counters", new HashMap<String, Object>());
+        }
         for (Map.Entry<String, Long> e : snap.entrySet()) {
             cfg.set("counters." + sanitize(e.getKey()), e.getValue());
         }
@@ -65,7 +83,10 @@ public class StateManager {
 
     private void loadStats() {
         File f = new File(stateDir, "trigger-stats.yml");
-        if (!f.exists()) return;
+        if (!f.exists() || f.length() == 0L) {
+            saveStats();
+            return;
+        }
         FileConfiguration cfg = YamlConfiguration.loadConfiguration(f);
         Map<String, Long> data = new HashMap<>();
         if (cfg.isConfigurationSection("counters")) {

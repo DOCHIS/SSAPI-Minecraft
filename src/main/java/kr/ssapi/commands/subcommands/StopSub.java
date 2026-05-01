@@ -2,15 +2,11 @@ package kr.ssapi.commands.subcommands;
 
 import kr.ssapi.commands.SubCommand;
 import kr.ssapi.model.ApiConnection;
-import kr.ssapi.services.ApiClient;
-import kr.ssapi.services.ApiErrorMapper;
 import kr.ssapi.services.MessageService;
-import kr.ssapi.services.api.ApiResponse;
 import kr.ssapi.storage.StorageManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,14 +21,10 @@ import java.util.Optional;
  */
 public class StopSub implements SubCommand {
     private final MessageService messages;
-    private final ApiClient apiClient;
-    private final ApiErrorMapper errorMapper;
     private final boolean adminMode;
 
-    public StopSub(MessageService messages, ApiClient apiClient, ApiErrorMapper errorMapper, boolean adminMode) {
+    public StopSub(MessageService messages, kr.ssapi.services.ApiClient apiClient, kr.ssapi.services.ApiErrorMapper errorMapper, boolean adminMode) {
         this.messages = messages;
-        this.apiClient = apiClient;
-        this.errorMapper = errorMapper;
         this.adminMode = adminMode;
     }
 
@@ -67,15 +59,7 @@ public class StopSub implements SubCommand {
             return ExecutionResult.SUCCESS;
         }
 
-        messages.send(sender, "api.disconnecting");
-        JSONObject body = new JSONObject();
-        body.put("platform", conn.get().getPlatform().toApiString());
-        body.put("user", conn.get().getStreamerId());
-        ApiResponse<JSONObject> response = apiClient.delete("/room/user", body);
-        if (!response.isSuccess()) {
-            messages.send(sender, "api.disconnect_fail", "message", errorMapper.resolveReason(response));
-            return ExecutionResult.SUCCESS;
-        }
+        StorageManager.getDriver().setEnabled(target.getUniqueId().toString(), false);
 
         messages.send(target, "api.stop");
         if (adminMode) messages.send(sender, "admin.stop", "player", target.getName());

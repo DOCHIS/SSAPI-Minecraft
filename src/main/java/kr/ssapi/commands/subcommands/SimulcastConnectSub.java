@@ -147,9 +147,11 @@ public class SimulcastConnectSub implements SubCommand {
         if (adminMode) {
             if (args.length == 1) return online(args[0]);
             if (args.length == 2) return platforms(args[1]);
+            if (args.length == 3) return idPlaceholder(args[1]);
             return Collections.emptyList();
         }
         if (args.length == 1) return platforms(args[0]);
+        if (args.length == 2) return idPlaceholder(args[0]);
         return Collections.emptyList();
     }
 
@@ -165,5 +167,15 @@ public class SimulcastConnectSub implements SubCommand {
         List<String> out = new ArrayList<>();
         for (String s : Arrays.asList("숲", "치지직")) if (s.startsWith(prefix)) out.add(s);
         return out;
+    }
+
+    private List<String> idPlaceholder(String platform) {
+        if ("숲".equals(platform) || "soop".equalsIgnoreCase(platform)) {
+            return Collections.singletonList("스트리머아이디 (마크아이디 아님!)");
+        }
+        if ("치지직".equals(platform) || "chzzk".equalsIgnoreCase(platform)) {
+            return Collections.singletonList("치지직채널ID (마크아이디 아님!)");
+        }
+        return Collections.emptyList();
     }
 }

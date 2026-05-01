@@ -5,6 +5,7 @@ import kr.ssapi.actions.ActionContext;
 import kr.ssapi.config.MissionSettings;
 import kr.ssapi.events.MissionEvent;
 import kr.ssapi.model.ApiConnection;
+import kr.ssapi.services.FileLogService;
 import kr.ssapi.storage.StorageManager;
 import kr.ssapi.triggers.Trigger;
 import kr.ssapi.triggers.TriggerMatcher;
@@ -44,11 +45,13 @@ public class MissionListener implements Listener {
     private final JavaPlugin plugin;
     private final TriggerRegistry registry;
     private final ActionChain actionChain;
+    private final FileLogService fileLogs;
 
-    public MissionListener(JavaPlugin plugin, TriggerRegistry registry, ActionChain actionChain) {
+    public MissionListener(JavaPlugin plugin, TriggerRegistry registry, ActionChain actionChain, FileLogService fileLogs) {
         this.plugin = plugin;
         this.registry = registry;
         this.actionChain = actionChain;
+        this.fileLogs = fileLogs;
     }
 
     @EventHandler
@@ -57,11 +60,17 @@ public class MissionListener implements Listener {
         if (data == null) return;
 
         String phase = event.getPhase();
-        if (phase == null) return;
+        if (phase == null) {
+            logMission(data, "", "skipped", "missing_phase", null);
+            return;
+        }
 
         // 게이트 — 서버측에서 이미 1차 게이트 통과했지만 클라이언트도 한번 더 검사
         MissionSettings.Snapshot s = MissionSettings.get();
-        if (!s.isPhaseAllowed(phase)) return;
+        if (!s.isPhaseAllowed(phase)) {
+            logMission(data, phase, "skipped", "phase_not_allowed", null);
+            return;
+        }
 
         Player player;
         String testUuid = data.optBoolean("_test", false) ? data.optString("_test_player_uuid", "") : "";
@@ -71,11 +80,22 @@ public class MissionListener implements Listener {
         } else {
             player = resolvePlayer(data.optString("streamer_id", ""), data.optString("platform", ""));
         }
+        if (!data.optBoolean("_test", false)
+            && !isRewardEnabled(data.optString("streamer_id", ""), data.optString("platform", ""))) {
+            logMission(data, phase, "skipped", "disabled", player);
+            return;
+        }
         boolean executeWhenOffline = plugin.getConfig().getBoolean("reward.execute_when_offline", false);
-        if (player == null && !executeWhenOffline) return;
+        if (player == null && !executeWhenOffline) {
+            logMission(data, phase, "skipped", "player_offline", null);
+            return;
+        }
 
         TriggerRegistry.Scope scope = phaseToScope(phase);
-        if (scope == null) return;
+        if (scope == null) {
+            logMission(data, phase, "skipped", "unknown_phase", player);
+            return;
+        }
 
         switch (phase) {
             case "settle":
@@ -87,6 +107,14 @@ public class MissionListener implements Listener {
                 handleSimple(data, player, scope);
                 break;
         }
+        logMission(data, phase, "processed", "", player);
+    }
+
+    private void logMission(JSONObject data, String phase, String outcome, String reason, Player player) {
+        if (fileLogs == null) return;
+        fileLogs.logMission(data, phase, outcome, reason,
+            player == null ? null : player.getName(),
+            player == null ? null : player.getUniqueId().toString());
     }
 
     // settle 페이로드 처리: combined 면 total_amount 로 1회, individual 이면 donors 순회
@@ -231,11 +259,29 @@ public class MissionListener implements Listener {
             Optional<ApiConnection> conn = StorageManager.getDriver()
                 .getConnectionByStreamerIdAndPlatform(streamerId, platform);
             if (!conn.isPresent()) return null;
+            if (!conn.get().isEnabled()) return null;
             UUID uuid = UUID.fromString(conn.get().getUuid());
             return Bukkit.getPlayer(uuid);
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "MissionListener resolvePlayer 실패", e);
             return null;
+        }
+    }
+
+    private boolean isRewardEnabled(String streamerId, String platformStr) {
+        if (streamerId == null || streamerId.isEmpty()) return true;
+        ApiConnection.Platform platform;
+        if ("soop".equalsIgnoreCase(platformStr)) platform = ApiConnection.Platform.숲;
+        else if ("chzzk".equalsIgnoreCase(platformStr)) platform = ApiConnection.Platform.치지직;
+        else return true;
+
+        try {
+            Optional<ApiConnection> conn = StorageManager.getDriver()
+                .getConnectionByStreamerIdAndPlatform(streamerId, platform);
+            return !conn.isPresent() || conn.get().isEnabled();
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "MissionListener enabled 상태 조회 실패", e);
+            return true;
         }
     }
 

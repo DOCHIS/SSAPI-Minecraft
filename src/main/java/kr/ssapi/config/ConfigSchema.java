@@ -124,6 +124,7 @@ public final class ConfigSchema {
         Rule.opt("sounds.instant_death", Type.BOOLEAN, "즉사 사운드"),
 
         Rule.opt("logging.enabled", Type.BOOLEAN, "로그 활성화"),
+        Rule.opt("logging.save.api", Type.BOOLEAN, "REST API 호출/응답 로그 저장"),
         Rule.opt("logging.save.donation", Type.BOOLEAN, "후원 로그 저장"),
         Rule.opt("logging.save.mission", Type.BOOLEAN, "미션 로그 저장"),
         Rule.opt("logging.save.failure", Type.BOOLEAN, "실패 로그 저장"),
