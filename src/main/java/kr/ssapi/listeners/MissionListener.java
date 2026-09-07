@@ -126,7 +126,11 @@ public class MissionListener implements Listener {
             return;
         }
 
-        if ("individual".equalsIgnoreCase(payout)) {
+        boolean battle = "SETTLE".equalsIgnoreCase(data.optString("mission_type", ""));
+        boolean roomGifts = battle && "room_gifts".equalsIgnoreCase(plugin.getConfig().getString(
+            "mission.battle_settle_source", "settled"));
+        // 대결미션의 실제 정산액 모드는 단일 권위값이므로 donor 개별 지급으로 바꾸지 않는다.
+        if ("individual".equalsIgnoreCase(payout) && (!battle || roomGifts)) {
             JSONArray donors = settle.optJSONArray("donors");
             if (donors == null) return;
             int max = plugin.getConfig().getInt("mission.payout_safety.max_donors_processed", 200);
@@ -137,16 +141,33 @@ public class MissionListener implements Listener {
                 long delay = (long) i * spacing;
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     long amount = donor.optLong("amount", 0);
+                    if (amount <= 0) return;
                     ActionContext ctx = buildContext(data, player, donor, amount);
                     fire(scope, amount, ctx);
                 }, delay);
             }
         } else {
             // combined
-            long total = settle.optLong("total_amount", data.optLong("amount", 0));
-            ActionContext ctx = buildContext(data, player, null, total);
+            long total = roomGifts
+                ? settle.optLong("room_total_amount", settle.optLong("total_amount", data.optLong("amount", 0)))
+                : settle.optLong("total_amount", data.optLong("amount", 0));
+            if (total <= 0) {
+                logMission(data, "settle", "skipped", "non_positive_settlement", player);
+                return;
+            }
+            JSONObject selectedData = roomGifts ? withSelectedBattleTotal(data, settle) : data;
+            ActionContext ctx = buildContext(selectedData, player, null, total);
             fire(scope, total, ctx);
         }
+    }
+
+    private JSONObject withSelectedBattleTotal(JSONObject data, JSONObject settle) {
+        JSONObject selectedData = new JSONObject(data.toString());
+        JSONObject selectedSettle = new JSONObject(settle.toString());
+        selectedSettle.put("total_cnt", settle.optLong("room_total_cnt", settle.optLong("total_cnt", 0)));
+        selectedSettle.put("total_amount", settle.optLong("room_total_amount", settle.optLong("total_amount", 0)));
+        selectedData.put("settle", selectedSettle);
+        return selectedData;
     }
 
     // receive / result 처럼 단순 amount 기반으로 트리거 발화

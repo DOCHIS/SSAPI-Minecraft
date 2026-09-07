@@ -76,6 +76,11 @@ storage:
 # 💡 동시에 여러 미션이 진행 중이면 각 미션 별로 따로 처리됩니다.
 #    (mission_key 로 미션이 구분되며, 트리거·정산도 각 미션 별로 독립 발동)
 mission:
+  # 대결미션 정산 트리거에 사용할 겟수 기준
+  #   settled   : 방송인이 실제 정산받은 겟수 (기본값, 권장)
+  #   room_gifts: 해당 방송 방에서 이 미션에 후원받은 겟수
+  battle_settle_source: "settled"
+
   # 정산(settle) 시점에 미션의 후원들을 어떻게 처리할까요?
   #
   #   combined   : 미션에 들어온 모든 후원의 금액을 합쳐서 트리거 1회 발동 (기본)
@@ -85,7 +90,8 @@ mission:
   #                예) 후원자 10명이 각자 후원 → 각 후원 금액으로 10번 트리거
   #                ※ donors[] 배열을 시간순으로 순회하며 매번 트리거 매칭
   #
-  # ※ 이 옵션은 settle 시점에만 적용됩니다.
+  # ※ 이 옵션은 settle 시점에만 적용됩니다. 대결미션에서 battle_settle_source=settled이면
+  #   실제 정산액 하나가 권위값이므로 combined 방식으로 처리됩니다.
   #   receive / result 시점은 어차피 개별 후원이 그때그때 들어오므로 무관합니다.
   settle_payout: "combined"
 
@@ -99,7 +105,8 @@ mission:
   # ─ enabled: false 면 매칭에서 제외 (기본 false, 필요한 것만 켜기)
   # ─ 시점은 대시보드에서 활성화한 것만 발동됨
 
-  # ▸ on_receive: 들어온 미션 후원 한 건당 트리거 매칭 (donation 과 동일)
+  # ▸ on_receive: 들어온 미션 후원 한 건당 트리거 매칭 (선택 기능, 기본 비활성)
+  #   기본 정책은 정산 전 보상 금지입니다. 도전미션을 후원 즉시 처리할 때만 활성화하세요.
   #   match.amount = 후원 amount
   on_receive:
     - id: receive_default

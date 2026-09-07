@@ -76,6 +76,8 @@ public final class ConfigSchema {
 
         Rule.oneOf("mission.settle_payout", Type.STRING,
             Arrays.asList("combined", "individual"), "정산 처리 방식"),
+        Rule.oneOf("mission.battle_settle_source", Type.STRING,
+            Arrays.asList("settled", "room_gifts"), "대결미션 겟수 기준"),
         Rule.range("mission.payout_safety.max_donors_processed", Type.INT, 1, 5000,
             "individual 모드에서 처리할 최대 후원자 수"),
         Rule.range("mission.payout_safety.tick_spacing", Type.INT, 0, 200,

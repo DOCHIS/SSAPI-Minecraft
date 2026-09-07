@@ -491,6 +491,8 @@ gui:
     offline_label: "<yellow>오프라인 시 실행: <reset><value>"         # 변수: <value>
     payout_label: "<yellow>미션 정산 처리: <reset><value>"            # 변수: <value>
     payout_hint: "<gray>클릭 - combined ↔ individual"
+    battle_source_label: "<yellow>대결미션 겟수 기준: <reset><value>" # 변수: <value>
+    battle_source_hint: "<gray>클릭 - settled(실제 정산) ↔ room_gifts(본인 방 후원)"
     debug_label: "<yellow>디버그 로그: <reset><value>"                # 변수: <value>
     mission_label: "<gold>미션 hook_timings: <reset><value>"          # 변수: <value>
     mission_hint_1: "<gray>대시보드에서만 변경 가능"

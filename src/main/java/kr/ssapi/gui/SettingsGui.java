@@ -41,6 +41,11 @@ public class SettingsGui implements GuiScreen {
             messages.legacy("gui.settings.payout_label", "value", payout),
             messages.legacy("gui.settings.payout_hint")));
 
+        String battleSource = plugin.getConfig().getString("mission.battle_settle_source", "settled");
+        inv.setItem(13, GuiUtil.icon(Material.COMPARATOR,
+            messages.legacy("gui.settings.battle_source_label", "value", battleSource),
+            messages.legacy("gui.settings.battle_source_hint")));
+
         boolean debug = plugin.getConfig().getBoolean("logging.debug", false);
         inv.setItem(14, GuiUtil.icon(debug ? Material.REDSTONE : Material.GUNPOWDER,
             messages.legacy("gui.settings.debug_label", "value", String.valueOf(debug)),
@@ -75,6 +80,13 @@ public class SettingsGui implements GuiScreen {
                 String cur = plugin.getConfig().getString("mission.settle_payout", "combined");
                 String next = "combined".equals(cur) ? "individual" : "combined";
                 plugin.getConfig().set("mission.settle_payout", next);
+                plugin.saveConfig();
+                break;
+            }
+            case 13: {
+                String cur = plugin.getConfig().getString("mission.battle_settle_source", "settled");
+                String next = "settled".equals(cur) ? "room_gifts" : "settled";
+                plugin.getConfig().set("mission.battle_settle_source", next);
                 plugin.saveConfig();
                 break;
             }
