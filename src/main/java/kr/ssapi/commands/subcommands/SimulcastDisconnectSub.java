@@ -69,14 +69,21 @@ public class SimulcastDisconnectSub implements SubCommand {
             target = (Player) sender;
         }
 
+        String targetUuid = target.getUniqueId().toString();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin,
+            () -> executeDisconnect(sender, targetUuid));
+        return ExecutionResult.SUCCESS;
+    }
+
+    private void executeDisconnect(CommandSender sender, String targetUuid) {
         StorageDriver storage = StorageManager.getDriver();
         try {
             Optional<ApiConnection> simul = storage.getConnectionByUuidAndType(
-                target.getUniqueId().toString(), ApiConnection.ConnectionType.SIMULCAST);
+                targetUuid, ApiConnection.ConnectionType.SIMULCAST);
             if (!simul.isPresent()) {
-                messages.send(sender, "api.simulcast_disconnect_fail",
+                sendSync(sender, "api.simulcast_disconnect_fail",
                     "message", "동시송출 연동이 없습니다");
-                return ExecutionResult.SUCCESS;
+                return;
             }
 
             JSONObject body = new JSONObject();
@@ -85,17 +92,20 @@ public class SimulcastDisconnectSub implements SubCommand {
             ApiResponse<JSONObject> response = apiClient.delete("/room/user", body);
             if (!response.isSuccess()) {
                 String reason = errorMapper.resolveReason(response);
-                messages.send(sender, "api.simulcast_disconnect_fail", "message", reason);
-                return ExecutionResult.SUCCESS;
+                sendSync(sender, "api.simulcast_disconnect_fail", "message", reason);
+                return;
             }
             storage.deleteConnection(simul.get());
 
-            messages.send(sender, "api.simulcast_disconnect_success");
+            sendSync(sender, "api.simulcast_disconnect_success");
         } catch (Exception e) {
             plugin.getLogger().warning("SimulcastDisconnectSub 실패: " + e.getMessage());
-            messages.send(sender, "api.simulcast_disconnect_fail", "message", e.getMessage());
+            sendSync(sender, "api.simulcast_disconnect_fail", "message", e.getMessage());
         }
-        return ExecutionResult.SUCCESS;
+    }
+
+    private void sendSync(CommandSender sender, String key, String... replacements) {
+        Bukkit.getScheduler().runTask(plugin, () -> messages.send(sender, key, replacements));
     }
 
     @Override

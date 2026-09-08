@@ -2,6 +2,7 @@ package kr.ssapi.utils;
 
 import io.socket.client.IO;
 import io.socket.client.Socket;
+import io.socket.thread.EventThread;
 import kr.ssapi.config.MissionSettings;
 import kr.ssapi.events.DonationEvent;
 import kr.ssapi.events.MissionEvent;
@@ -12,6 +13,7 @@ import org.json.JSONObject;
 import org.xerial.snappy.Snappy;
 
 import java.net.URISyntaxException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -189,11 +191,62 @@ public class SocketUtil {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        if (httpClient != null) {
-            httpClient.dispatcher().cancelAll();
-            httpClient.dispatcher().executorService().shutdownNow();
-            httpClient.connectionPool().evictAll();
-            httpClient = null;
+        executorService = null;
+
+        OkHttpClient client = httpClient;
+        // disconnect() 직후 cancelAll()을 호출하면 OkHttp가 WebSocket.onFailure를
+        // 늦게 발행해 플러그인 classloader 종료 뒤 익명 콜백 클래스를 찾으려 한다.
+        // 먼저 정상 close 콜백과 EventThread 큐를 bounded drain한다.
+        awaitEventThreadDrain(2, TimeUnit.SECONDS);
+        awaitTransportCallbacks(250, TimeUnit.MILLISECONDS);
+        awaitEventThreadDrain(2, TimeUnit.SECONDS);
+
+        if (client != null) {
+            try {
+                client.dispatcher().executorService().shutdown();
+                if (!client.dispatcher().executorService().awaitTermination(2, TimeUnit.SECONDS)) {
+                    client.dispatcher().cancelAll();
+                    client.dispatcher().executorService().shutdownNow();
+                    client.dispatcher().executorService().awaitTermination(1, TimeUnit.SECONDS);
+                    awaitTransportCallbacks(100, TimeUnit.MILLISECONDS);
+                    awaitEventThreadDrain(1, TimeUnit.SECONDS);
+                }
+                client.connectionPool().evictAll();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Throwable ignored) {
+            }
+        }
+        httpClient = null;
+        loginResponseReceived = false;
+        plugin = null;
+    }
+
+    private static void awaitTransportCallbacks(long timeout, TimeUnit unit) {
+        try {
+            unit.sleep(timeout);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    static boolean awaitEventThreadDrain(long timeout, TimeUnit unit) {
+        CountDownLatch drained = new CountDownLatch(1);
+        try {
+            EventThread.nextTick(drained::countDown);
+            boolean completed = drained.await(timeout, unit);
+            if (!completed && plugin != null) {
+                plugin.getLogger().warning("Socket.IO EventThread 종료 대기 시간이 초과됐습니다.");
+            }
+            return completed;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (Throwable e) {
+            if (plugin != null) {
+                plugin.getLogger().log(Level.FINE, "Socket.IO EventThread 종료 대기 생략", e);
+            }
+            return false;
         }
     }
 

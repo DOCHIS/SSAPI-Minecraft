@@ -8,6 +8,7 @@ import kr.ssapi.services.MessageService;
 import kr.ssapi.services.api.ApiResponse;
 import kr.ssapi.storage.StorageDriver;
 import kr.ssapi.storage.StorageManager;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONObject;
@@ -49,11 +50,16 @@ public class ConnectionDeleteSub implements SubCommand {
         if (args.length < 1 || args[0].trim().isEmpty()) return ExecutionResult.USAGE_ERROR;
 
         String target = args[0].trim();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> executeDelete(sender, target));
+        return ExecutionResult.SUCCESS;
+    }
+
+    private void executeDelete(CommandSender sender, String target) {
         StorageDriver storage = StorageManager.getDriver();
         List<ApiConnection> matches = findMatches(storage.getAllConnections(), target);
         if (matches.isEmpty()) {
-            messages.send(sender, "admin.connection_delete.not_found", "target", target);
-            return ExecutionResult.SUCCESS;
+            sendSync(sender, "admin.connection_delete.not_found", "target", target);
+            return;
         }
 
         int deleted = 0;
@@ -71,23 +77,26 @@ public class ConnectionDeleteSub implements SubCommand {
         }
 
         if (failures.isEmpty()) {
-            messages.send(sender, "admin.connection_delete.success",
+            sendSync(sender, "admin.connection_delete.success",
                 "target", target,
                 "count", String.valueOf(deleted));
         } else if (deleted > 0) {
-            messages.send(sender, "admin.connection_delete.partial_fail",
+            sendSync(sender, "admin.connection_delete.partial_fail",
                 "target", target,
                 "success", String.valueOf(deleted),
                 "failed", String.valueOf(failures.size()),
                 "reason", failures.get(0));
             plugin.getLogger().warning("ConnectionDeleteSub 일부 실패: " + String.join("; ", failures));
         } else {
-            messages.send(sender, "admin.connection_delete.fail",
+            sendSync(sender, "admin.connection_delete.fail",
                 "target", target,
                 "reason", failures.get(0));
             plugin.getLogger().warning("ConnectionDeleteSub 실패: " + String.join("; ", failures));
         }
-        return ExecutionResult.SUCCESS;
+    }
+
+    private void sendSync(CommandSender sender, String key, String... replacements) {
+        Bukkit.getScheduler().runTask(plugin, () -> messages.send(sender, key, replacements));
     }
 
     @Override

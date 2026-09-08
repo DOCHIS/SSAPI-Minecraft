@@ -65,7 +65,7 @@ public class YamlDriver implements StorageDriver {
     }
 
     @Override
-    public void initialize() {
+    public synchronized void initialize() {
         if (!dataFile.exists()) {
             yaml = new YamlConfiguration();
             save();
@@ -136,10 +136,10 @@ public class YamlDriver implements StorageDriver {
         }
     }
 
-    @Override public void close() { save(); }
+    @Override public synchronized void close() { save(); }
 
     @Override
-    public void saveConnection(ApiConnection connection) {
+    public synchronized void saveConnection(ApiConnection connection) {
         String typeKey = connection.getConnectionType().name().toLowerCase();
         String path = "connections." + connection.getUuid() + "." + typeKey;
         yaml.set(path + ".platform", connection.getPlatform().name());
@@ -154,20 +154,20 @@ public class YamlDriver implements StorageDriver {
     }
 
     @Override
-    public void setEnabled(String uuid, boolean enabled) {
+    public synchronized void setEnabled(String uuid, boolean enabled) {
         yaml.set("connections." + uuid + ".enabled", enabled);
         save();
     }
 
     @Override
-    public Optional<ApiConnection> getConnectionByUuidAndType(String uuid, ApiConnection.ConnectionType type) {
+    public synchronized Optional<ApiConnection> getConnectionByUuidAndType(String uuid, ApiConnection.ConnectionType type) {
         String path = "connections." + uuid + "." + type.name().toLowerCase();
         if (!yaml.contains(path + ".platform")) return Optional.empty();
         return Optional.of(loadConnection(uuid, type, path));
     }
 
     @Override
-    public List<ApiConnection> getConnectionsByUuid(String uuid) {
+    public synchronized List<ApiConnection> getConnectionsByUuid(String uuid) {
         List<ApiConnection> out = new ArrayList<>();
         for (ApiConnection.ConnectionType t : ApiConnection.ConnectionType.values()) {
             getConnectionByUuidAndType(uuid, t).ifPresent(out::add);
@@ -176,7 +176,7 @@ public class YamlDriver implements StorageDriver {
     }
 
     @Override
-    public Optional<ApiConnection> getConnectionByStreamerIdAndPlatform(String streamerId,
+    public synchronized Optional<ApiConnection> getConnectionByStreamerIdAndPlatform(String streamerId,
                                                                        ApiConnection.Platform platform) {
         ConfigurationSection connections = yaml.getConfigurationSection("connections");
         if (connections == null) return Optional.empty();
@@ -194,7 +194,7 @@ public class YamlDriver implements StorageDriver {
     }
 
     @Override
-    public List<ApiConnection> getAllConnections() {
+    public synchronized List<ApiConnection> getAllConnections() {
         List<ApiConnection> result = new ArrayList<>();
         ConfigurationSection connections = yaml.getConfigurationSection("connections");
         if (connections == null) return result;
@@ -210,7 +210,7 @@ public class YamlDriver implements StorageDriver {
     }
 
     @Override
-    public List<ApiConnection> getConnectionsByPlatform(ApiConnection.Platform platform) {
+    public synchronized List<ApiConnection> getConnectionsByPlatform(ApiConnection.Platform platform) {
         List<ApiConnection> result = new ArrayList<>();
         ConfigurationSection connections = yaml.getConfigurationSection("connections");
         if (connections == null) return result;
@@ -226,7 +226,7 @@ public class YamlDriver implements StorageDriver {
     }
 
     @Override
-    public void deleteConnection(ApiConnection connection) {
+    public synchronized void deleteConnection(ApiConnection connection) {
         String typeKey = connection.getConnectionType().name().toLowerCase();
         yaml.set("connections." + connection.getUuid() + "." + typeKey, null);
         ConfigurationSection cs = yaml.getConfigurationSection("connections." + connection.getUuid());
@@ -251,7 +251,7 @@ public class YamlDriver implements StorageDriver {
     }
 
     @Override
-    public void saveApiLog(ApiLog log) {
+    public synchronized void saveApiLog(ApiLog log) {
         File dailyLog = new File(logFile.getParentFile(),
             "donations-" + LocalDateTime.now().toLocalDate() + ".jsonl");
         rotateIfTooLarge(dailyLog);

@@ -20,12 +20,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -139,9 +133,7 @@ public class ConnectSub implements SubCommand {
                 if (existingConnection.getPlatform() == platform
                     && existingConnection.getStreamerId() != null
                     && existingConnection.getStreamerId().equalsIgnoreCase(channelId)) {
-                    ApiConnection refreshed = refreshStreamerName(existingConnection, channelId);
-                    storage.saveConnection(refreshed);
-                    finishConnect(sender, targetUuid, targetName, refreshed, notifyAdmin, true);
+                    finishConnect(sender, targetUuid, targetName, existingConnection, notifyAdmin, true);
                     return;
                 }
 
@@ -173,7 +165,9 @@ public class ConnectSub implements SubCommand {
                     + platform.name() + "/" + channelId + " -> " + targetName);
             }
 
-            String streamerName = resolveStreamerNickname(platform, channelId, channelId);
+            String streamerName = response.data == null
+                ? channelId
+                : response.data.optString("streamer_name", channelId);
             ApiConnection conn = new ApiConnection(
                 targetUuid,
                 platform,
@@ -251,21 +245,6 @@ public class ConnectSub implements SubCommand {
         catch (IllegalArgumentException e) { return null; }
     }
 
-    private ApiConnection refreshStreamerName(ApiConnection connection, String channelId) {
-        String streamerName = resolveStreamerNickname(connection.getPlatform(), channelId, connection.getStreamerName());
-        if (streamerName.equals(connection.getStreamerName())) return connection;
-        return new ApiConnection(
-            connection.getUuid(),
-            connection.getPlatform(),
-            connection.getStreamerId(),
-            streamerName,
-            connection.getName(),
-            connection.getCreatedAt(),
-            connection.getConnectionType(),
-            connection.isEnabled()
-        );
-    }
-
     private void runConnectTriggers(Player target, ApiConnection connection) {
         if (triggerRegistry == null || actionChain == null || target == null || connection == null) return;
         try {
@@ -285,59 +264,6 @@ public class ConnectSub implements SubCommand {
             }
         } catch (Exception e) {
             plugin.getLogger().warning("connect 트리거 실행 실패: " + e.getMessage());
-        }
-    }
-
-    private String resolveStreamerNickname(ApiConnection.Platform platform, String channelId, String fallback) {
-        try {
-            String value = platform == ApiConnection.Platform.숲
-                ? fetchSoopNickname(channelId)
-                : fetchChzzkNickname(channelId);
-            if (value != null && !value.trim().isEmpty()) return value.trim();
-        } catch (Exception e) {
-            plugin.getLogger().warning("스트리머 채널 닉네임 조회 실패: "
-                + platform.name() + "/" + channelId + " - " + e.getMessage());
-        }
-        if (fallback != null && !fallback.trim().isEmpty()) return fallback.trim();
-        return channelId;
-    }
-
-    private String fetchSoopNickname(String channelId) throws Exception {
-        JSONObject json = getJson("https://chapi.sooplive.co.kr/api/" + channelId + "/station/");
-        JSONObject station = json.optJSONObject("station");
-        return station == null ? "" : station.optString("user_nick", "");
-    }
-
-    private String fetchChzzkNickname(String channelId) throws Exception {
-        JSONObject json = getJson("https://api.chzzk.naver.com/service/v1/channels/" + channelId);
-        JSONObject content = json.optJSONObject("content");
-        return content == null ? "" : content.optString("channelName", "");
-    }
-
-    private JSONObject getJson(String url) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URI(url).toURL().openConnection();
-        conn.setRequestMethod("GET");
-        conn.setConnectTimeout(5_000);
-        conn.setReadTimeout(8_000);
-        conn.setRequestProperty("Accept", "application/json");
-        conn.setRequestProperty("User-Agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36");
-        int status = conn.getResponseCode();
-        InputStream stream = status >= 200 && status < 400 ? conn.getInputStream() : conn.getErrorStream();
-        String body = readAll(stream);
-        if (status < 200 || status >= 400) {
-            throw new IllegalStateException("channel API http " + status);
-        }
-        return new JSONObject(body == null || body.isEmpty() ? "{}" : body);
-    }
-
-    private String readAll(InputStream stream) throws Exception {
-        if (stream == null) return "";
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) sb.append(line);
-            return sb.toString();
         }
     }
 

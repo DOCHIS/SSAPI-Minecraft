@@ -98,48 +98,63 @@ public class SimulcastConnectSub implements SubCommand {
             return ExecutionResult.SUCCESS;
         }
 
+        String targetUuid = target.getUniqueId().toString();
+        String targetName = target.getName();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin,
+            () -> executeConnect(sender, targetUuid, targetName, platform, channelId));
+        return ExecutionResult.SUCCESS;
+    }
+
+    private void executeConnect(CommandSender sender, String targetUuid, String targetName,
+                                ApiConnection.Platform platform, String channelId) {
         StorageDriver storage = StorageManager.getDriver();
         try {
             Optional<ApiConnection> primary = storage.getConnectionByUuidAndType(
-                target.getUniqueId().toString(), ApiConnection.ConnectionType.PRIMARY);
+                targetUuid, ApiConnection.ConnectionType.PRIMARY);
             if (!primary.isPresent()) {
-                messages.send(sender, "api.connect.error.primary_required_first");
-                return ExecutionResult.SUCCESS;
+                sendSync(sender, "api.connect.error.primary_required_first");
+                return;
             }
             if (primary.get().getPlatform() == platform) {
-                messages.send(sender, "api.connect.error.same_platform_as_primary");
-                return ExecutionResult.SUCCESS;
+                sendSync(sender, "api.connect.error.same_platform_as_primary");
+                return;
             }
 
             JSONObject body = new JSONObject();
             body.put("platform", platform.toApiString());
             body.put("user", channelId);
-            body.put("minecraft_uuid", target.getUniqueId().toString());
+            body.put("minecraft_uuid", targetUuid);
             ApiResponse<JSONObject> response = apiClient.put("/plugin/minecraft/user", body);
             if (!response.isSuccess()) {
                 String reason = errorMapper.resolveReason(response);
-                messages.send(sender, "api.simulcast_connect_fail", "message", reason);
-                return ExecutionResult.SUCCESS;
+                sendSync(sender, "api.simulcast_connect_fail", "message", reason);
+                return;
             }
 
+            String streamerName = response.data == null
+                ? channelId
+                : response.data.optString("streamer_name", channelId);
             ApiConnection conn = new ApiConnection(
-                target.getUniqueId().toString(),
+                targetUuid,
                 platform,
                 channelId,
-                target.getName(),
-                target.getName(),
+                streamerName,
+                targetName,
                 LocalDateTime.now(),
                 ApiConnection.ConnectionType.SIMULCAST
             );
             storage.saveConnection(conn);
 
-            messages.send(sender, "api.simulcast_connect_success",
+            sendSync(sender, "api.simulcast_connect_success",
                 "platform_name", platform == ApiConnection.Platform.숲 ? "숲" : "치지직");
         } catch (Exception e) {
             plugin.getLogger().warning("SimulcastConnectSub 실패: " + e.getMessage());
-            messages.send(sender, "api.simulcast_connect_fail", "message", e.getMessage());
+            sendSync(sender, "api.simulcast_connect_fail", "message", e.getMessage());
         }
-        return ExecutionResult.SUCCESS;
+    }
+
+    private void sendSync(CommandSender sender, String key, String... replacements) {
+        Bukkit.getScheduler().runTask(plugin, () -> messages.send(sender, key, replacements));
     }
 
     @Override
